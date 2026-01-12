@@ -1,0 +1,189 @@
+.gantt-wrapper {
+  width: 100%;
+  height: calc(100vh - 80px);
+  overflow: auto;
+}
+
+.gantt-wrapper.dark {
+  background: var(--bg-primary);
+}
+
+/* Light mode row styles - Jira-like unified look */
+.gantt-wrapper .gridRow {
+  fill: #ffffff;
+}
+
+.gantt-wrapper .gridRow:nth-child(even) {
+  fill: #fafbfc;
+}
+
+.gantt-wrapper .ganttTable_Cell {
+  background: #ffffff;
+}
+
+.gantt-wrapper .ganttTable_Cell:nth-child(even) {
+  background: #fafbfc;
+}
+
+/* Light mode calendar header - match TaskListHeader #f4f5f7 */
+.gantt-wrapper .calendarTop,
+.gantt-wrapper .calendarBottom {
+  background: #f4f5f7 !important;
+}
+
+.gantt-wrapper .calendarTop rect,
+.gantt-wrapper .calendarBottom rect,
+.gantt-wrapper svg .calendarTop rect,
+.gantt-wrapper svg .calendarBottom rect {
+  fill: #f4f5f7 !important;
+}
+
+.gantt-wrapper .calendarTop text,
+.gantt-wrapper .calendarBottom text {
+  fill: #5e6c84 !important;
+}
+
+/* Light mode grid lines - subtle gray */
+.gantt-wrapper .gridRowLine {
+  stroke: rgba(0, 0, 0, 0.06) !important;
+}
+
+.gantt-wrapper .gridTick {
+  stroke: rgba(0, 0, 0, 0.06) !important;
+}
+
+.gantt-wrapper line {
+  stroke: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Override gantt-task-react styles for dark mode */
+.gantt-wrapper.dark .ganttTable {
+  background: var(--bg-primary);
+}
+
+.gantt-wrapper.dark .ganttTable_Header {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.gantt-wrapper.dark .ganttTable_HeaderItem {
+  color: var(--text-primary);
+  border-right: 1px solid var(--border-color);
+}
+
+.gantt-wrapper.dark .ganttTable_Cell {
+  color: var(--text-primary);
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  background: #1e2127;
+}
+
+/* Dark mode calendar styles - match TaskListHeader #2d333b */
+.gantt-wrapper.dark .calendar {
+  background: #2d333b !important;
+}
+
+.gantt-wrapper.dark .calendarHeader {
+  color: #adbac7;
+}
+
+.gantt-wrapper.dark .calendarTop,
+.gantt-wrapper.dark .calendarBottom {
+  background: #2d333b !important;
+  border-bottom: 1px solid #444c56;
+}
+
+/* Force calendar text and rect colors in dark mode */
+.gantt-wrapper.dark .calendarTop text,
+.gantt-wrapper.dark .calendarBottom text {
+  fill: #adbac7 !important;
+}
+
+.gantt-wrapper.dark .calendarTop rect,
+.gantt-wrapper.dark .calendarBottom rect {
+  fill: #2d333b !important;
+}
+
+.gantt-wrapper.dark [class*="calendar"] {
+  background: #2d333b !important;
+}
+
+/* Grid background for dark mode - target SVG rect elements */
+.gantt-wrapper.dark .gridBody rect {
+  fill: #1e2127 !important;
+}
+
+.gantt-wrapper.dark .gridBody rect:nth-child(even) {
+  fill: #22262d !important;
+}
+
+.gantt-wrapper.dark .gridRow {
+  fill: #1e2127 !important;
+}
+
+.gantt-wrapper.dark .gridRow:nth-child(even) {
+  fill: #22262d !important;
+}
+
+.gantt-wrapper.dark rect.gridRow {
+  fill: #1e2127 !important;
+}
+
+.gantt-wrapper.dark rect.gridRow:nth-child(even) {
+  fill: #22262d !important;
+}
+
+/* Dark mode grid lines - subtle light gray */
+.gantt-wrapper.dark .gridRowLine {
+  stroke: rgba(255, 255, 255, 0.08) !important;
+}
+
+.gantt-wrapper.dark .gridTick {
+  stroke: rgba(255, 255, 255, 0.08) !important;
+}
+
+.gantt-wrapper.dark line {
+  stroke: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Force grid background rects in dark mode - only target gridBody, not task bars */
+.gantt-wrapper.dark g.gridBody > rect:nth-child(odd) {
+  fill: #1e2127 !important;
+}
+
+.gantt-wrapper.dark g.gridBody > rect:nth-child(even) {
+  fill: #22262d !important;
+}
+
+/* Task bar hover effect */
+.gantt-wrapper .barWrapper:hover {
+  cursor: pointer;
+}
+
+/* Empty state */
+.gantt-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - 80px);
+  color: var(--text-secondary);
+}
+
+/* Scrollbar styling */
+.gantt-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.gantt-wrapper::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.gantt-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.gantt-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
