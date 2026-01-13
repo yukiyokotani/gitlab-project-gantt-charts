@@ -111,6 +111,8 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
         hasOriginalEnd: boolean;
         originalStart: Date | null;
         originalEnd: Date | null;
+        // Assignees
+        assignees: { id: number; name: string; avatarUrl: string }[];
       } = {
         id: numId,
         text: task.text || 'Untitled',
@@ -122,6 +124,7 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
         hasOriginalEnd,
         originalStart: hasOriginalStart ? task.start : null,
         originalEnd: hasOriginalEnd ? task.end : null,
+        assignees: task.assignees || [],
       };
 
       // Only add parent if it exists in the mapping
@@ -160,14 +163,51 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
     {
       unit: 'day',
       step: 1,
-      format: (date: Date) => format(date, 'd'),
+      format: (date: Date) => format(date, 'd(E)', { locale: ja }),
     },
   ], []);
+
+  // Highlight weekends (Saturday and Sunday)
+  const highlightWeekends = (date: Date, unit: 'day' | 'hour') => {
+    if (unit === 'day') {
+      const day = date.getDay();
+      if (day === 0 || day === 6) {
+        return 'weekend-cell';
+      }
+    }
+    return '';
+  };
+
+  // Assignee cell component
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const AssigneeCell = ({ row }: { row: any }) => {
+    if (!row.assignees || row.assignees.length === 0) return null;
+    return (
+      <div className="assignee-cell">
+        {row.assignees.map((a: { id: number; avatarUrl: string; name: string }) => (
+          <div key={a.id} className="assignee-item">
+            <img
+              src={a.avatarUrl}
+              alt={a.name}
+              className="assignee-avatar"
+            />
+            <span className="assignee-name">{a.name}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   // Column configuration
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const columns = useMemo(() => [
     { id: 'text', header: 'タスク名', flexgrow: 1 },
+    {
+      id: 'assignees',
+      header: '担当者',
+      width: 120,
+      cell: AssigneeCell,
+    },
     {
       id: 'start',
       header: '開始日',
@@ -212,11 +252,14 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
       }
     });
 
-    api.on('update-task', (ev: { id: number; task: { start: Date; end: Date } }) => {
-      if (ev.id && ev.task) {
+    api.on('update-task', (ev: { id: number; task: { start: Date; end: Date }; inProgress?: boolean }) => {
+      // Only update when drag is complete (inProgress is false or undefined)
+      if (ev.id && ev.task && !ev.inProgress) {
         const originalId = idMappingRef.current.numToString.get(ev.id);
-        if (originalId && ev.task.start && ev.task.end) {
-          onTaskUpdateRef.current(originalId, ev.task.start, ev.task.end);
+        if (originalId && originalId.startsWith('issue-') && !originalId.includes('-task-')) {
+          if (ev.task.start && ev.task.end) {
+            onTaskUpdateRef.current(originalId, ev.task.start, ev.task.end);
+          }
         }
       }
     });
@@ -242,6 +285,8 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
           links={[]}
           scales={scales}
           columns={columns}
+          cellHeight={28}
+          highlightTime={highlightWeekends}
         />
       </ThemeWrapper>
     </div>

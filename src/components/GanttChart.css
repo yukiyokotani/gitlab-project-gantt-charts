@@ -1,6 +1,6 @@
 .gantt-wrapper {
   width: 100%;
-  height: calc(100vh - 80px);
+  height: calc(100vh - 96px);
   overflow: hidden;
 }
 
@@ -16,6 +16,55 @@
 /* Custom styling for SVAR Gantt */
 .gantt-wrapper .wx-gantt {
   height: 100%;
+}
+
+/* Compact row styling */
+.gantt-wrapper .wx-grid-cell {
+  font-size: 12px;
+  padding: 0 4px;
+}
+
+.gantt-wrapper .wx-grid-header-cell {
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+/* Make task bar text fit in compact rows */
+.gantt-wrapper .wx-task-content {
+  font-size: 10px;
+}
+
+/* Assignee avatars in grid */
+.gantt-wrapper .assignee-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gantt-wrapper .assignee-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gantt-wrapper .assignee-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.gantt-wrapper .assignee-name {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Weekend highlight */
+.gantt-wrapper .weekend-cell {
+  background-color: rgba(128, 128, 128, 0.15);
 }
 
 /* Jira-like task colors */

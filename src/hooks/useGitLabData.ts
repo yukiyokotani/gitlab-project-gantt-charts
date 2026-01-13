@@ -221,7 +221,8 @@ export function useGitLabData(): UseGitLabDataResult {
       const match = taskId.match(/^issue-(\d+)$/);
       if (!match) return;
 
-      const issue = issues.find(i => i.id === parseInt(match[1], 10));
+      const issueId = parseInt(match[1], 10);
+      const issue = issues.find(i => i.id === issueId);
       if (!issue) return;
 
       try {
@@ -233,7 +234,15 @@ export function useGitLabData(): UseGitLabDataResult {
         // Update local state
         setTasks(prev =>
           prev.map(task =>
-            task.id === taskId ? { ...task, start, end } : task
+            task.id === taskId
+              ? {
+                  ...task,
+                  start,
+                  end,
+                  hasOriginalStartDate: true,
+                  hasOriginalDueDate: true,
+                }
+              : task
           )
         );
       } catch (err) {

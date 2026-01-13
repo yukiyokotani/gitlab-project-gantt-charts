@@ -99,6 +99,12 @@ interface WorkItemNode {
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
+  author: {
+    id: string;
+    username: string;
+    name: string;
+    avatarUrl: string;
+  } | null;
   widgets: Array<{
     __typename: string;
     // StartAndDueDateWidget fields
@@ -179,6 +185,12 @@ export async function fetchAllIssuesAsWorkItems(): Promise<GitLabIssue[]> {
               createdAt
               updatedAt
               closedAt
+              author {
+                id
+                username
+                name
+                avatarUrl
+              }
               widgets {
                 ... on WorkItemWidgetStartAndDueDate {
                   __typename
@@ -304,7 +316,12 @@ export async function fetchAllIssuesAsWorkItems(): Promise<GitLabIssue[]> {
         labels,
         milestone,
         assignees,
-        author: { id: 0, username: '', name: '', avatar_url: '' }, // Not available in work items query
+        author: node.author ? {
+          id: parseInt(node.author.id.replace(/\D/g, ''), 10),
+          username: node.author.username,
+          name: node.author.name,
+          avatar_url: node.author.avatarUrl,
+        } : { id: 0, username: '', name: '', avatar_url: '' },
         created_at: node.createdAt,
         updated_at: node.updatedAt,
         closed_at: node.closedAt,
@@ -334,20 +351,108 @@ export async function fetchLabels(): Promise<GitLabLabel[]> {
 export async function updateIssue(
   issueIid: number,
   updates: { due_date?: string; start_date?: string }
-): Promise<GitLabIssue> {
-  const url = `${GITLAB_URL}/api/v4/projects/${encodeURIComponent(GITLAB_PROJECT_ID)}/issues/${issueIid}`;
+): Promise<void> {
+  // Use GraphQL Work Items API to update start_date and due_date
+  const graphqlHeaders = {
+    'Authorization': `Bearer ${GITLAB_TOKEN}`,
+    'Content-Type': 'application/json',
+  };
 
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers,
-    body: JSON.stringify(updates),
+  const projectPath = await getProjectPath();
+
+  // First, get the work item ID from the issue IID
+  const getWorkItemQuery = `
+    query GetWorkItem($fullPath: ID!, $iid: String!) {
+      project(fullPath: $fullPath) {
+        workItems(iid: $iid, first: 1) {
+          nodes {
+            id
+          }
+        }
+      }
+    }
+  `;
+
+  const getResponse = await fetch(`${GITLAB_URL}/api/graphql`, {
+    method: 'POST',
+    headers: graphqlHeaders,
+    body: JSON.stringify({
+      query: getWorkItemQuery,
+      variables: {
+        fullPath: projectPath,
+        iid: String(issueIid),
+      },
+    }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to update issue: ${response.status} ${response.statusText}`);
+  if (!getResponse.ok) {
+    throw new Error(`Failed to get work item: ${getResponse.status} ${getResponse.statusText}`);
   }
 
-  return response.json();
+  const getResult = await getResponse.json();
+
+  if (getResult.errors?.length > 0) {
+    throw new Error(`GraphQL error: ${getResult.errors[0].message}`);
+  }
+
+  const workItemId = getResult.data?.project?.workItems?.nodes?.[0]?.id;
+  if (!workItemId) {
+    throw new Error('Work item not found');
+  }
+
+  // Now update the work item using the mutation
+  const updateMutation = `
+    mutation UpdateWorkItemDates($id: WorkItemID!, $startDate: Date, $dueDate: Date) {
+      workItemUpdate(
+        input: {
+          id: $id
+          startAndDueDateWidget: {
+            startDate: $startDate
+            dueDate: $dueDate
+            isFixed: true
+          }
+        }
+      ) {
+        workItem {
+          id
+          widgets {
+            ... on WorkItemWidgetStartAndDueDate {
+              startDate
+              dueDate
+            }
+          }
+        }
+        errors
+      }
+    }
+  `;
+
+  const updateResponse = await fetch(`${GITLAB_URL}/api/graphql`, {
+    method: 'POST',
+    headers: graphqlHeaders,
+    body: JSON.stringify({
+      query: updateMutation,
+      variables: {
+        id: workItemId,
+        startDate: updates.start_date || null,
+        dueDate: updates.due_date || null,
+      },
+    }),
+  });
+
+  if (!updateResponse.ok) {
+    throw new Error(`Failed to update work item: ${updateResponse.status} ${updateResponse.statusText}`);
+  }
+
+  const updateResult = await updateResponse.json();
+
+  if (updateResult.errors?.length > 0) {
+    throw new Error(`GraphQL error: ${updateResult.errors[0].message}`);
+  }
+
+  if (updateResult.data?.workItemUpdate?.errors?.length > 0) {
+    throw new Error(`Update error: ${updateResult.data.workItemUpdate.errors[0]}`);
+  }
 }
 
 export function parseTasksFromDescription(description: string | null): TaskItem[] {

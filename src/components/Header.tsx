@@ -1,4 +1,5 @@
-import { ThemeToggle } from './ThemeToggle';
+import { IconButton, Spinner } from '@radix-ui/themes';
+import { ReloadIcon, SunIcon, MoonIcon } from '@radix-ui/react-icons';
 import './Header.css';
 
 interface HeaderProps {
@@ -18,15 +19,21 @@ export function Header({ theme, onThemeToggle, onRefresh, loading }: HeaderProps
         </h1>
       </div>
       <div className="header-right">
-        <button
-          className="refresh-btn"
+        <IconButton
+          variant="ghost"
           onClick={onRefresh}
           disabled={loading}
+          aria-label="更新"
         >
-          <span className={`refresh-icon ${loading ? 'spinning' : ''}`}>🔄</span>
-          {loading ? '読み込み中...' : '更新'}
-        </button>
-        <ThemeToggle theme={theme} onToggle={onThemeToggle} />
+          {loading ? <Spinner /> : <ReloadIcon />}
+        </IconButton>
+        <IconButton
+          variant="ghost"
+          onClick={onThemeToggle}
+          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+        >
+          {theme === 'light' ? <MoonIcon /> : <SunIcon />}
+        </IconButton>
       </div>
     </header>
   );
