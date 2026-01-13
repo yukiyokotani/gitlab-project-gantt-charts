@@ -168,12 +168,10 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
   ], []);
 
   // Highlight weekends (Saturday and Sunday)
-  const highlightWeekends = (date: Date, unit: 'day' | 'hour') => {
-    if (unit === 'day') {
-      const day = date.getDay();
-      if (day === 0 || day === 6) {
-        return 'weekend-cell';
-      }
+  const highlightWeekends = (date: Date) => {
+    const day = date.getDay();
+    if (day === 0 || day === 6) {
+      return 'wx-weekend';
     }
     return '';
   };
@@ -199,7 +197,6 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
   };
 
   // Column configuration
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const columns = useMemo(() => [
     { id: 'text', header: 'タスク名', flexgrow: 1 },
     {
@@ -212,18 +209,18 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
       id: 'start',
       header: '開始日',
       width: 100,
-      template: (_value: Date, task: any) => {
+      template: (_value: unknown, task: Record<string, unknown>) => {
         if (!task.hasOriginalStart) return '-';
-        return task.originalStart ? format(task.originalStart, 'yyyy/MM/dd') : '-';
+        return task.originalStart instanceof Date ? format(task.originalStart, 'yyyy/MM/dd') : '-';
       },
     },
     {
       id: 'end',
       header: '終了日',
       width: 100,
-      template: (_value: Date, task: any) => {
+      template: (_value: unknown, task: Record<string, unknown>) => {
         if (!task.hasOriginalEnd) return '-';
-        return task.originalEnd ? format(task.originalEnd, 'yyyy/MM/dd') : '-';
+        return task.originalEnd instanceof Date ? format(task.originalEnd, 'yyyy/MM/dd') : '-';
       },
     },
   ], []);

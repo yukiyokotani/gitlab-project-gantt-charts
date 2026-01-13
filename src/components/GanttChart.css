@@ -62,11 +62,6 @@
   text-overflow: ellipsis;
 }
 
-/* Weekend highlight */
-.gantt-wrapper .weekend-cell {
-  background-color: rgba(128, 128, 128, 0.15);
-}
-
 /* Jira-like task colors */
 .gantt-wrapper .wx-task-bar {
   border-radius: 4px;
