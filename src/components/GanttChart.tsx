@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useEffect } from 'react';
 import { Gantt, Willow, WillowDark } from '@svar-ui/react-gantt';
 import '@svar-ui/react-gantt/all.css';
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
 import type { GanttTask } from '../types/gantt';
 import './GanttChart.css';
 
@@ -29,7 +31,37 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
     return { stringToNum, numToString };
   }, [tasks]);
 
-  // Convert our tasks to svar format - minimal structure
+  // Calculate the overall date range for extending tasks without dates
+  const dateRange = useMemo(() => {
+    const tasksWithDates = tasks.filter(t => t.hasOriginalStartDate || t.hasOriginalDueDate);
+    if (tasksWithDates.length === 0) {
+      const today = new Date();
+      return {
+        minDate: new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000),
+        maxDate: new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000),
+      };
+    }
+
+    let minDate = new Date(8640000000000000);
+    let maxDate = new Date(-8640000000000000);
+
+    for (const task of tasks) {
+      if (task.start && task.start.getTime() < minDate.getTime()) {
+        minDate = task.start;
+      }
+      if (task.end && task.end.getTime() > maxDate.getTime()) {
+        maxDate = task.end;
+      }
+    }
+
+    // Add padding
+    minDate = new Date(minDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+    maxDate = new Date(maxDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    return { minDate, maxDate };
+  }, [tasks]);
+
+  // Convert our tasks to svar format
   const svarTasks = useMemo(() => {
     if (tasks.length === 0) return [];
 
@@ -38,13 +70,31 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
       const numId = idMapping.stringToNum.get(task.id) || 1;
       const parentNumId = task.parent ? idMapping.stringToNum.get(task.parent) : undefined;
 
-      // Ensure valid dates
-      const start = task.start instanceof Date && !isNaN(task.start.getTime())
-        ? task.start
-        : new Date();
-      const end = task.end instanceof Date && !isNaN(task.end.getTime())
-        ? task.end
-        : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+      // Determine start and end dates
+      let start: Date;
+      let end: Date;
+
+      const hasOriginalStart = task.hasOriginalStartDate === true;
+      const hasOriginalEnd = task.hasOriginalDueDate === true;
+
+      if (hasOriginalStart && task.start instanceof Date && !isNaN(task.start.getTime())) {
+        start = task.start;
+      } else {
+        // No original start date - extend to the minimum
+        start = dateRange.minDate;
+      }
+
+      if (hasOriginalEnd && task.end instanceof Date && !isNaN(task.end.getTime())) {
+        end = task.end;
+      } else {
+        // No original end date - extend to the maximum
+        end = dateRange.maxDate;
+      }
+
+      // Ensure end is after start
+      if (end.getTime() <= start.getTime()) {
+        end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      }
 
       // Basic task object matching svar's expected structure
       const svarTask: {
@@ -56,6 +106,11 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
         type: string;
         parent?: number;
         open?: boolean;
+        // Custom fields to track original dates
+        hasOriginalStart: boolean;
+        hasOriginalEnd: boolean;
+        originalStart: Date | null;
+        originalEnd: Date | null;
       } = {
         id: numId,
         text: task.text || 'Untitled',
@@ -63,6 +118,10 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
         end,
         progress: task.progress || 0,
         type: task.type || 'task',
+        hasOriginalStart,
+        hasOriginalEnd,
+        originalStart: hasOriginalStart ? task.start : null,
+        originalEnd: hasOriginalEnd ? task.end : null,
       };
 
       // Only add parent if it exists in the mapping
@@ -78,25 +137,55 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
     });
 
     // Sort: parent tasks first, then children
-    // Tasks without parent come first, then tasks with parents
     return converted.sort((a, b) => {
       const aHasParent = a.parent !== undefined;
       const bHasParent = b.parent !== undefined;
       if (!aHasParent && bHasParent) return -1;
       if (aHasParent && !bHasParent) return 1;
-      // If both have parents, sort by parent id to group siblings
       if (aHasParent && bHasParent) {
         if (a.parent! < b.parent!) return -1;
         if (a.parent! > b.parent!) return 1;
       }
       return a.id - b.id;
     });
-  }, [tasks, idMapping]);
+  }, [tasks, idMapping, dateRange]);
 
-  // Scale configuration
+  // Scale configuration - using date-fns format functions
   const scales = useMemo(() => [
-    { unit: 'month', step: 1, format: 'MMMM yyy' },
-    { unit: 'day', step: 1, format: 'd' },
+    {
+      unit: 'month',
+      step: 1,
+      format: (date: Date) => format(date, 'yyyy年M月', { locale: ja }),
+    },
+    {
+      unit: 'day',
+      step: 1,
+      format: (date: Date) => format(date, 'd'),
+    },
+  ], []);
+
+  // Column configuration
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const columns = useMemo(() => [
+    { id: 'text', header: 'タスク名', flexgrow: 1 },
+    {
+      id: 'start',
+      header: '開始日',
+      width: 100,
+      template: (_value: Date, task: any) => {
+        if (!task.hasOriginalStart) return '-';
+        return task.originalStart ? format(task.originalStart, 'yyyy/MM/dd') : '-';
+      },
+    },
+    {
+      id: 'end',
+      header: '終了日',
+      width: 100,
+      template: (_value: Date, task: any) => {
+        if (!task.hasOriginalEnd) return '-';
+        return task.originalEnd ? format(task.originalEnd, 'yyyy/MM/dd') : '-';
+      },
+    },
   ], []);
 
   // Store callbacks in refs to avoid stale closures
@@ -144,9 +233,6 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
     );
   }
 
-  // Debug: log tasks
-  console.log('svarTasks:', svarTasks);
-
   return (
     <div className="gantt-wrapper">
       <ThemeWrapper>
@@ -155,6 +241,7 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
           tasks={svarTasks}
           links={[]}
           scales={scales}
+          columns={columns}
         />
       </ThemeWrapper>
     </div>

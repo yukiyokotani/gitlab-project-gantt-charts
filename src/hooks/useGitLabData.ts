@@ -3,7 +3,7 @@ import type { GitLabMilestone, ParsedIssue, GitLabLabel } from '../types/gitlab'
 import type { GanttTask } from '../types/gantt';
 import {
   fetchAllMilestones,
-  fetchAllIssues,
+  fetchAllIssuesAsWorkItems,
   fetchLabels,
   enrichIssuesWithLabels,
   updateIssue,
@@ -192,7 +192,7 @@ export function useGitLabData(): UseGitLabDataResult {
     try {
       const [milestonesData, issuesData, labelsData] = await Promise.all([
         fetchAllMilestones(),
-        fetchAllIssues(),
+        fetchAllIssuesAsWorkItems(),
         fetchLabels(),
       ]);
 
