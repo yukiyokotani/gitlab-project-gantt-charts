@@ -181,15 +181,12 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
 
             {/* Description */}
             {issue.description && (
-              <>
-                <Separator.Root className="separator" />
-                <div className="description-section">
-                  <h3 className="section-title">説明</h3>
-                  <div className="description-content">
-                    {issue.description}
-                  </div>
+              <div className="description-section">
+                <h3 className="section-title">説明</h3>
+                <div className="description-content">
+                  {issue.description}
                 </div>
-              </>
+              </div>
             )}
           </div>
 

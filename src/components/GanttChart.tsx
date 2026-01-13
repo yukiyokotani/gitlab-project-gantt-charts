@@ -163,7 +163,7 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
     {
       unit: 'day',
       step: 1,
-      format: (date: Date) => format(date, 'd(E)', { locale: ja }),
+      format: (date: Date) => format(date, 'd (E)', { locale: ja }),
     },
   ], []);
 
@@ -283,6 +283,7 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
           scales={scales}
           columns={columns}
           cellHeight={28}
+          cellWidth={60}
           highlightTime={highlightWeekends}
         />
       </ThemeWrapper>
