@@ -156,7 +156,16 @@ interface WorkItemsGraphQLResponse {
   errors?: Array<{ message: string }>;
 }
 
-export async function fetchAllIssuesAsWorkItems(): Promise<GitLabIssue[]> {
+export interface FetchIssuesOptions {
+  state?: 'opened' | 'closed' | 'all';
+  updatedAfter?: string; // ISO date string
+}
+
+export async function fetchAllIssuesAsWorkItems(
+  options: FetchIssuesOptions = {}
+): Promise<GitLabIssue[]> {
+  const { state = 'opened', updatedAfter } = options;
+
   const graphqlHeaders = {
     'Authorization': `Bearer ${GITLAB_TOKEN}`,
     'Content-Type': 'application/json',
@@ -164,17 +173,25 @@ export async function fetchAllIssuesAsWorkItems(): Promise<GitLabIssue[]> {
 
   // Get the project path for GraphQL
   const projectPath = await getProjectPath();
-  console.log('Using project path for GraphQL:', projectPath);
+  console.log('Using project path for GraphQL:', projectPath, 'state:', state);
 
   const issues: GitLabIssue[] = [];
   let hasNextPage = true;
   let endCursor: string | null = null;
 
+  // Map state to GraphQL enum (null means no filter)
+  // GitLab uses lowercase: opened, closed, locked, all
+  const stateFilter = state === 'all' ? null : state;
+
   while (hasNextPage) {
+    // Build query dynamically based on whether we have a state filter
+    const stateVarDef = stateFilter ? ', $state: IssuableState' : '';
+    const stateArg = stateFilter ? ', state: $state' : '';
+
     const query = `
-      query GetProjectWorkItems($fullPath: ID!, $after: String) {
+      query GetProjectWorkItems($fullPath: ID!, $after: String${stateVarDef}, $updatedAfter: Time) {
         project(fullPath: $fullPath) {
-          workItems(after: $after, first: 100, types: [ISSUE]) {
+          workItems(after: $after, first: 100, types: [ISSUE]${stateArg}, updatedAfter: $updatedAfter) {
             nodes {
               id
               iid
@@ -239,16 +256,20 @@ export async function fetchAllIssuesAsWorkItems(): Promise<GitLabIssue[]> {
       }
     `;
 
+    // Build variables object conditionally
+    const variables: Record<string, unknown> = {
+      fullPath: projectPath,
+      after: endCursor,
+      updatedAfter: updatedAfter || null,
+    };
+    if (stateFilter) {
+      variables.state = stateFilter;
+    }
+
     const response = await fetch(`${GITLAB_URL}/api/graphql`, {
       method: 'POST',
       headers: graphqlHeaders,
-      body: JSON.stringify({
-        query,
-        variables: {
-          fullPath: projectPath,
-          after: endCursor,
-        },
-      }),
+      body: JSON.stringify({ query, variables }),
     });
 
     if (!response.ok) {

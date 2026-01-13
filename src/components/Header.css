@@ -28,6 +28,31 @@
   font-size: 24px;
 }
 
+.header-filters {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  justify-content: center;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 12px;
+  color: var(--gray-11);
+  white-space: nowrap;
+}
+
+.date-separator {
+  font-size: 12px;
+  color: var(--gray-9);
+}
+
 .header-right {
   display: flex;
   align-items: center;

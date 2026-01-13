@@ -236,9 +236,43 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
     idMappingRef.current = idMapping;
   }, [onTaskClick, onTaskUpdate, idMapping]);
 
+  // Scroll to today's date
+  const scrollToToday = useCallback((api: GanttApi) => {
+    // Wait for render to complete
+    setTimeout(() => {
+      try {
+        const state = api.getState();
+        const scales = state._scales;
+        if (!scales) return;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Calculate pixel position for today
+        const scaleStart = scales.start;
+        if (!scaleStart) return;
+
+        // Use scale's diff function to calculate position
+        const diffDays = scales.diff(today, scaleStart);
+        const pixelPosition = diffDays * scales.lengthUnitWidth;
+
+        // Scroll to position (with some padding to show context before today)
+        const padding = 50; // Show a bit before today
+        const scrollLeft = Math.max(0, pixelPosition - padding);
+
+        api.exec('scroll-chart', { left: scrollLeft });
+      } catch (err) {
+        console.warn('Failed to scroll to today:', err);
+      }
+    }, 100);
+  }, []);
+
   // Initialize Gantt API and set up event handlers
   const handleInit = useCallback((api: GanttApi) => {
     apiRef.current = api;
+
+    // Scroll to today's date on init
+    scrollToToday(api);
 
     api.on('select-task', (ev: { id: number }) => {
       if (ev.id) {
@@ -260,10 +294,19 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
         }
       }
     });
-  }, []);
+  }, [scrollToToday]);
 
   // Theme wrapper component
   const ThemeWrapper = theme === 'dark' ? WillowDark : Willow;
+
+  // Generate a stable key based on task IDs to force re-mount when dataset changes significantly
+  // This prevents SVAR Gantt from crashing during transitions
+  const ganttKey = useMemo(() => {
+    if (svarTasks.length === 0) return 'empty';
+    // Use first few task IDs and count to create a stable key
+    const firstIds = svarTasks.slice(0, 5).map(t => t.id).join('-');
+    return `gantt-${svarTasks.length}-${firstIds}`;
+  }, [svarTasks]);
 
   if (tasks.length === 0 || svarTasks.length === 0) {
     return (
@@ -274,7 +317,7 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
   }
 
   return (
-    <div className="gantt-wrapper">
+    <div className="gantt-wrapper" key={ganttKey}>
       <ThemeWrapper>
         <Gantt
           init={handleInit}

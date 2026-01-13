@@ -12,7 +12,16 @@ import './App.css';
 
 function App() {
   const { theme, toggleTheme } = useTheme();
-  const { tasks, issues, loading, error, refresh, updateTaskDates } = useGitLabData();
+  const {
+    tasks,
+    issues,
+    loading,
+    error,
+    filterOptions,
+    setFilterOptions,
+    refresh,
+    updateTaskDates,
+  } = useGitLabData();
   const [selectedIssue, setSelectedIssue] = useState<ParsedIssue | null>(null);
 
   const config = getGitLabConfig();
@@ -97,6 +106,8 @@ function App() {
           onThemeToggle={toggleTheme}
           onRefresh={refresh}
           loading={loading}
+          filterOptions={filterOptions}
+          onFilterChange={setFilterOptions}
         />
 
         <main className="main-content">

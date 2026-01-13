@@ -7,7 +7,18 @@ import {
   fetchLabels,
   enrichIssuesWithLabels,
   updateIssue,
+  type FetchIssuesOptions,
 } from '../api/gitlab';
+
+export interface DateRangeFilter {
+  startDate: Date | null;
+  endDate: Date | null;
+}
+
+export interface FilterOptions {
+  issueState: 'opened' | 'closed' | 'all';
+  dateRange: DateRangeFilter;
+}
 
 interface UseGitLabDataResult {
   tasks: GanttTask[];
@@ -16,6 +27,8 @@ interface UseGitLabDataResult {
   labels: GitLabLabel[];
   loading: boolean;
   error: string | null;
+  filterOptions: FilterOptions;
+  setFilterOptions: (options: FilterOptions) => void;
   refresh: () => Promise<void>;
   updateTaskDates: (taskId: string, start: Date, end: Date) => Promise<void>;
 }
@@ -168,31 +181,112 @@ function getDemoTasks(): GanttTask[] {
   ];
 }
 
+// Default filter: 3 months before and after today
+function getDefaultDateRange(): DateRangeFilter {
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setMonth(startDate.getMonth() - 3);
+  const endDate = new Date(today);
+  endDate.setMonth(endDate.getMonth() + 3);
+  return { startDate, endDate };
+}
+
+const defaultFilterOptions: FilterOptions = {
+  issueState: 'opened',
+  dateRange: getDefaultDateRange(),
+};
+
+// Filter tasks by date range
+function filterTasksByDateRange(
+  tasks: GanttTask[],
+  dateRange: DateRangeFilter
+): GanttTask[] {
+  if (!dateRange.startDate && !dateRange.endDate) {
+    return tasks;
+  }
+
+  // First pass: filter regular tasks by date range
+  const filteredTasks = tasks.filter(task => {
+    // Skip milestones in first pass (we'll handle them after)
+    if (task.type === 'summary') return false;
+    // Always include subtasks if their parent is included
+    if (task.isSubtask) return true;
+
+    // Check if task overlaps with date range
+    const taskStart = task.start;
+    const taskEnd = task.end;
+
+    if (dateRange.startDate && dateRange.endDate) {
+      // Task overlaps if it starts before range ends AND ends after range starts
+      return taskStart <= dateRange.endDate && taskEnd >= dateRange.startDate;
+    } else if (dateRange.startDate) {
+      return taskEnd >= dateRange.startDate;
+    } else if (dateRange.endDate) {
+      return taskStart <= dateRange.endDate;
+    }
+    return true;
+  });
+
+  // Collect parent IDs that have children in the filtered set
+  const parentIdsWithChildren = new Set<string>();
+  for (const task of filteredTasks) {
+    if (task.parent) {
+      parentIdsWithChildren.add(task.parent);
+    }
+  }
+
+  // Second pass: include milestones only if they have children
+  const milestones = tasks.filter(
+    task => task.type === 'summary' && parentIdsWithChildren.has(task.id)
+  );
+
+  // Filter subtasks to only include those whose parent issue is in filteredTasks
+  const issueIds = new Set(filteredTasks.filter(t => !t.isSubtask).map(t => t.id));
+  const validSubtasks = filteredTasks.filter(
+    task => !task.isSubtask || (task.parent && issueIds.has(task.parent))
+  );
+
+  return [...milestones, ...validSubtasks];
+}
+
 export function useGitLabData(): UseGitLabDataResult {
+  const [allTasks, setAllTasks] = useState<GanttTask[]>([]);
   const [tasks, setTasks] = useState<GanttTask[]>([]);
   const [milestones, setMilestones] = useState<GitLabMilestone[]>([]);
   const [issues, setIssues] = useState<ParsedIssue[]>([]);
   const [labels, setLabels] = useState<GitLabLabel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterOptions, setFilterOptionsState] = useState<FilterOptions>(defaultFilterOptions);
   const initialLoadDone = useRef(false);
   const useDemoDataRef = useRef(false);
 
-  const loadData = useCallback(async () => {
+  // Apply date range filter when allTasks or filterOptions change
+  useEffect(() => {
+    const filtered = filterTasksByDateRange(allTasks, filterOptions.dateRange);
+    setTasks(filtered);
+  }, [allTasks, filterOptions.dateRange]);
+
+  const loadData = useCallback(async (options?: FetchIssuesOptions) => {
     setLoading(true);
     setError(null);
 
     // Use demo data if enabled (for testing)
     if (useDemoDataRef.current) {
-      setTasks(getDemoTasks());
+      setAllTasks(getDemoTasks());
       setLoading(false);
       return;
     }
 
+    const fetchOptions: FetchIssuesOptions = {
+      state: options?.state || filterOptions.issueState,
+      ...options,
+    };
+
     try {
       const [milestonesData, issuesData, labelsData] = await Promise.all([
         fetchAllMilestones(),
-        fetchAllIssuesAsWorkItems(),
+        fetchAllIssuesAsWorkItems(fetchOptions),
         fetchLabels(),
       ]);
 
@@ -202,18 +296,27 @@ export function useGitLabData(): UseGitLabDataResult {
       setMilestones(milestonesData);
       setIssues(enrichedIssues);
       setLabels(labelsData);
-      setTasks(ganttTasks);
+      setAllTasks(ganttTasks);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
       setError(errorMessage);
       // Fallback to demo data on error for testing
       console.warn('Using demo data due to error:', errorMessage);
-      setTasks(getDemoTasks());
+      setAllTasks(getDemoTasks());
       useDemoDataRef.current = true;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterOptions.issueState]);
+
+  const setFilterOptions = useCallback((options: FilterOptions) => {
+    const stateChanged = options.issueState !== filterOptions.issueState;
+    setFilterOptionsState(options);
+    // Re-fetch from API if state filter changed
+    if (stateChanged) {
+      loadData({ state: options.issueState });
+    }
+  }, [filterOptions.issueState, loadData]);
 
   const updateTaskDates = useCallback(
     async (taskId: string, start: Date, end: Date) => {
@@ -232,7 +335,7 @@ export function useGitLabData(): UseGitLabDataResult {
         });
 
         // Update local state
-        setTasks(prev =>
+        setAllTasks(prev =>
           prev.map(task =>
             task.id === taskId
               ? {
@@ -259,6 +362,8 @@ export function useGitLabData(): UseGitLabDataResult {
     loadData();
   }, [loadData]);
 
+  const refresh = useCallback(() => loadData(), [loadData]);
+
   return {
     tasks,
     milestones,
@@ -266,7 +371,9 @@ export function useGitLabData(): UseGitLabDataResult {
     labels,
     loading,
     error,
-    refresh: loadData,
+    filterOptions,
+    setFilterOptions,
+    refresh,
     updateTaskDates,
   };
 }
