@@ -11,58 +11,11 @@ interface GanttChartProps {
   onTaskUpdate: (taskId: string, start: Date, end: Date) => void;
 }
 
-// SVAR task type
-interface SvarTask {
-  id: number;
-  text: string;
-  start: Date;
-  end: Date;
-  duration: number;
-  progress: number;
-  type: 'task' | 'summary' | 'milestone';
-  parent: number;
-  open: boolean;
-  // Custom data
-  originalId: string;
-  issueState?: 'opened' | 'closed';
-  hasOriginalStartDate?: boolean;
-  hasOriginalDueDate?: boolean;
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type GanttApi = any;
 
 export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttChartProps) {
   const apiRef = useRef<GanttApi>(null);
-
-  // Calculate the overall date range for tasks without dates
-  const dateRange = useMemo(() => {
-    const tasksWithDates = tasks.filter(t => t.hasOriginalStartDate || t.hasOriginalDueDate);
-    if (tasksWithDates.length === 0) {
-      const today = new Date();
-      return {
-        minDate: new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000),
-        maxDate: new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000),
-      };
-    }
-
-    let minDate = new Date(8640000000000000);
-    let maxDate = new Date(-8640000000000000);
-
-    for (const task of tasks) {
-      if (task.start.getTime() < minDate.getTime()) {
-        minDate = task.start;
-      }
-      if (task.end.getTime() > maxDate.getTime()) {
-        maxDate = task.end;
-      }
-    }
-
-    minDate = new Date(minDate.getTime() - 30 * 24 * 60 * 60 * 1000);
-    maxDate = new Date(maxDate.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    return { minDate, maxDate };
-  }, [tasks]);
 
   // Create ID mapping (string -> number for svar)
   const idMapping = useMemo(() => {
@@ -76,78 +29,74 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
     return { stringToNum, numToString };
   }, [tasks]);
 
-  // Convert our tasks to svar format
-  const svarTasks: SvarTask[] = useMemo(() => {
-    return tasks.map((task) => {
-      let start = task.start;
-      let end = task.end;
+  // Convert our tasks to svar format - minimal structure
+  const svarTasks = useMemo(() => {
+    if (tasks.length === 0) return [];
 
-      // Extend tasks without original dates
-      if (task.hasOriginalStartDate === false && task.hasOriginalDueDate === false) {
-        start = dateRange.minDate;
-        end = dateRange.maxDate;
-      } else if (task.hasOriginalStartDate === false) {
-        start = dateRange.minDate;
-      } else if (task.hasOriginalDueDate === false) {
-        end = dateRange.maxDate;
-      }
+    // First pass: convert all tasks
+    const converted = tasks.map((task) => {
+      const numId = idMapping.stringToNum.get(task.id) || 1;
+      const parentNumId = task.parent ? idMapping.stringToNum.get(task.parent) : undefined;
 
-      // Ensure end is after start
-      if (end.getTime() <= start.getTime()) {
-        end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-      }
+      // Ensure valid dates
+      const start = task.start instanceof Date && !isNaN(task.start.getTime())
+        ? task.start
+        : new Date();
+      const end = task.end instanceof Date && !isNaN(task.end.getTime())
+        ? task.end
+        : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-      // Calculate duration in days
-      const duration = Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-
-      // Get parent ID
-      const parentId = task.parent ? (idMapping.stringToNum.get(task.parent) || 0) : 0;
-
-      return {
-        id: idMapping.stringToNum.get(task.id) || 0,
-        text: task.text,
+      // Basic task object matching svar's expected structure
+      const svarTask: {
+        id: number;
+        text: string;
+        start: Date;
+        end: Date;
+        progress: number;
+        type: string;
+        parent?: number;
+        open?: boolean;
+      } = {
+        id: numId,
+        text: task.text || 'Untitled',
         start,
         end,
-        duration,
-        progress: 0,
+        progress: task.progress || 0,
         type: task.type || 'task',
-        parent: parentId,
-        open: task.open !== false,
-        originalId: task.id,
-        issueState: task.issueState,
-        hasOriginalStartDate: task.hasOriginalStartDate,
-        hasOriginalDueDate: task.hasOriginalDueDate,
       };
+
+      // Only add parent if it exists in the mapping
+      if (parentNumId !== undefined && idMapping.numToString.has(parentNumId)) {
+        svarTask.parent = parentNumId;
+      }
+
+      if (task.type === 'summary') {
+        svarTask.open = true;
+      }
+
+      return svarTask;
     });
-  }, [tasks, dateRange, idMapping]);
+
+    // Sort: parent tasks first, then children
+    // Tasks without parent come first, then tasks with parents
+    return converted.sort((a, b) => {
+      const aHasParent = a.parent !== undefined;
+      const bHasParent = b.parent !== undefined;
+      if (!aHasParent && bHasParent) return -1;
+      if (aHasParent && !bHasParent) return 1;
+      // If both have parents, sort by parent id to group siblings
+      if (aHasParent && bHasParent) {
+        if (a.parent! < b.parent!) return -1;
+        if (a.parent! > b.parent!) return 1;
+      }
+      return a.id - b.id;
+    });
+  }, [tasks, idMapping]);
 
   // Scale configuration
   const scales = useMemo(() => [
-    { unit: 'month' as const, step: 1, format: 'yyyy年M月' },
-    { unit: 'day' as const, step: 1, format: 'd' },
-  ], []);
-
-  // Column configuration
-  const columns = useMemo(() => [
-    { id: 'text', header: 'タスク名', flexgrow: 1 },
-    {
-      id: 'start',
-      header: '開始日',
-      width: 100,
-      template: (task: SvarTask) => {
-        if (task.hasOriginalStartDate === false) return '-';
-        return formatDate(task.start);
-      }
-    },
-    {
-      id: 'end',
-      header: '終了日',
-      width: 100,
-      template: (task: SvarTask) => {
-        if (task.hasOriginalDueDate === false) return '-';
-        return formatDate(task.end);
-      }
-    },
+    { unit: 'month', step: 1, format: 'MMMM yyy' },
+    { unit: 'day', step: 1, format: 'd' },
   ], []);
 
   // Store callbacks in refs to avoid stale closures
@@ -165,7 +114,6 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
   const handleInit = useCallback((api: GanttApi) => {
     apiRef.current = api;
 
-    // Listen for task selection (double-click to open modal)
     api.on('select-task', (ev: { id: number }) => {
       if (ev.id) {
         const originalId = idMappingRef.current.numToString.get(ev.id);
@@ -175,8 +123,7 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
       }
     });
 
-    // Listen for task updates (drag to change dates)
-    api.on('update-task', (ev: { id: number; task: SvarTask }) => {
+    api.on('update-task', (ev: { id: number; task: { start: Date; end: Date } }) => {
       if (ev.id && ev.task) {
         const originalId = idMappingRef.current.numToString.get(ev.id);
         if (originalId && ev.task.start && ev.task.end) {
@@ -189,7 +136,7 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
   // Theme wrapper component
   const ThemeWrapper = theme === 'dark' ? WillowDark : Willow;
 
-  if (svarTasks.length === 0) {
+  if (tasks.length === 0 || svarTasks.length === 0) {
     return (
       <div className="gantt-empty">
         <p>表示するタスクがありません</p>
@@ -197,25 +144,19 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
     );
   }
 
+  // Debug: log tasks
+  console.log('svarTasks:', svarTasks);
+
   return (
     <div className="gantt-wrapper">
       <ThemeWrapper>
         <Gantt
           init={handleInit}
           tasks={svarTasks}
+          links={[]}
           scales={scales}
-          columns={columns}
-          cellWidth={40}
-          cellHeight={36}
         />
       </ThemeWrapper>
     </div>
   );
-}
-
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}/${month}/${day}`;
 }
