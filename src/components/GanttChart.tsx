@@ -6,6 +6,7 @@ import { ja } from 'date-fns/locale';
 import { Milestone } from 'lucide-react';
 import type { GanttTask } from '../types/gantt';
 import './GanttChart.css';
+import { resolveUrl } from '@/lib/utils';
 
 interface DateRangeFilter {
   startDate: Date | null;
@@ -267,12 +268,13 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const AssigneeCell = ({ row }: { row: any }) => {
     if (!row.assignees || row.assignees.length === 0) return null;
+    
     return (
       <div className="assignee-cell">
         {row.assignees.map((a: { id: number; avatarUrl: string; name: string }) => (
           <div key={a.id} className="assignee-item">
             <img
-              src={a.avatarUrl}
+              src={resolveUrl(a.avatarUrl)}
               alt={a.name}
               className="assignee-avatar"
             />
