@@ -148,7 +148,7 @@ function App() {
         onFilterChange={setFilterOptions}
       />
 
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 min-h-0 overflow-hidden">
         {error && (
           <div className="flex items-center justify-between gap-4 px-4 py-2 bg-destructive/10 border-b border-destructive/20">
             <span className="text-sm text-destructive flex items-center gap-2">

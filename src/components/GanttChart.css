@@ -1,7 +1,8 @@
 .gantt-wrapper {
   width: 100%;
-  height: calc(100vh - 96px);
-  overflow: hidden;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
 }
 
 /* Empty state */
@@ -16,6 +17,7 @@
 /* Custom styling for SVAR Gantt */
 .gantt-wrapper .wx-gantt {
   height: 100%;
+  min-height: 100%;
   font-size: 12px;
 }
 
