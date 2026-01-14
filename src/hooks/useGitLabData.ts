@@ -19,6 +19,48 @@ export interface DateRangeFilter {
 export interface FilterOptions {
   issueState: 'opened' | 'closed' | 'all';
   dateRange: DateRangeFilter;
+  selectedMilestoneIds: number[]; // empty array means show all
+}
+
+const FILTER_STORAGE_KEY = 'gitlab-gantt-filter-options';
+
+interface StoredFilterOptions {
+  issueState: 'opened' | 'closed' | 'all';
+  dateRange: {
+    startDate: string | null;
+    endDate: string | null;
+  };
+  selectedMilestoneIds: number[];
+}
+
+function saveFilterToStorage(options: FilterOptions): void {
+  const stored: StoredFilterOptions = {
+    issueState: options.issueState,
+    dateRange: {
+      startDate: options.dateRange.startDate?.toISOString() || null,
+      endDate: options.dateRange.endDate?.toISOString() || null,
+    },
+    selectedMilestoneIds: options.selectedMilestoneIds,
+  };
+  localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(stored));
+}
+
+function loadFilterFromStorage(): FilterOptions | null {
+  try {
+    const stored = localStorage.getItem(FILTER_STORAGE_KEY);
+    if (!stored) return null;
+    const parsed: StoredFilterOptions = JSON.parse(stored);
+    return {
+      issueState: parsed.issueState,
+      dateRange: {
+        startDate: parsed.dateRange.startDate ? new Date(parsed.dateRange.startDate) : null,
+        endDate: parsed.dateRange.endDate ? new Date(parsed.dateRange.endDate) : null,
+      },
+      selectedMilestoneIds: parsed.selectedMilestoneIds || [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 interface UseGitLabDataResult {
@@ -195,7 +237,16 @@ function getDefaultDateRange(): DateRangeFilter {
 const defaultFilterOptions: FilterOptions = {
   issueState: 'opened',
   dateRange: getDefaultDateRange(),
+  selectedMilestoneIds: [],
 };
+
+function getInitialFilterOptions(): FilterOptions {
+  const stored = loadFilterFromStorage();
+  if (stored) {
+    return stored;
+  }
+  return defaultFilterOptions;
+}
 
 // Filter tasks by date range
 function filterTasksByDateRange(
@@ -263,17 +314,40 @@ export function useGitLabData(): UseGitLabDataResult {
   const [labels, setLabels] = useState<GitLabLabel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterOptions, setFilterOptionsState] = useState<FilterOptions>(defaultFilterOptions);
+  const [filterOptions, setFilterOptionsState] = useState<FilterOptions>(getInitialFilterOptions);
   const initialLoadDone = useRef(false);
   const useDemoDataRef = useRef(false);
 
-  // Apply date range filter when allTasks or filterOptions change
+  // Apply date range and milestone filter when allTasks or filterOptions change
   useEffect(() => {
-    const filtered = filterTasksByDateRange(allTasks, filterOptions.dateRange);
-    setTasks(filtered);
-  }, [allTasks, filterOptions.dateRange]);
+    let filtered = filterTasksByDateRange(allTasks, filterOptions.dateRange);
 
-  const loadData = useCallback(async (options?: FetchIssuesOptions) => {
+    // Apply milestone filter
+    if (filterOptions.selectedMilestoneIds.length > 0) {
+      const selectedMilestoneIdSet = new Set(filterOptions.selectedMilestoneIds);
+      filtered = filtered.filter(task => {
+        // Always include milestones that are selected
+        if (task.type === 'summary' && task.milestoneId) {
+          return selectedMilestoneIdSet.has(task.milestoneId);
+        }
+        // Include issues that belong to selected milestones or have no milestone
+        if (task.type === 'task') {
+          // Get milestone ID from parent
+          const parentMilestoneMatch = task.parent?.match(/^milestone-(\d+)$/);
+          if (parentMilestoneMatch) {
+            return selectedMilestoneIdSet.has(parseInt(parentMilestoneMatch[1], 10));
+          }
+          // Issues without milestone - don't show when filtering by milestone
+          return false;
+        }
+        return true;
+      });
+    }
+
+    setTasks(filtered);
+  }, [allTasks, filterOptions.dateRange, filterOptions.selectedMilestoneIds]);
+
+  const loadData = useCallback(async (options?: FetchIssuesOptions & { selectedMilestoneIds?: number[] }) => {
     setLoading(true);
     setError(null);
 
@@ -284,24 +358,41 @@ export function useGitLabData(): UseGitLabDataResult {
       return;
     }
 
-    const fetchOptions: FetchIssuesOptions = {
-      state: options?.state || filterOptions.issueState,
-      ...options,
-    };
+    const stateFilter = options?.state || filterOptions.issueState;
+    const milestoneIds = options?.selectedMilestoneIds ?? filterOptions.selectedMilestoneIds;
 
     try {
-      const [milestonesData, issuesData, labelsData] = await Promise.all([
+      // First fetch milestones and labels
+      const [milestonesData, labelsData] = await Promise.all([
         fetchAllMilestones(),
-        fetchAllIssuesAsWorkItems(fetchOptions),
         fetchLabels(),
       ]);
+
+      setMilestones(milestonesData);
+      setLabels(labelsData);
+
+      // Then fetch issues based on milestone filter
+      let issuesData: Awaited<ReturnType<typeof fetchAllIssuesAsWorkItems>>;
+
+      if (milestoneIds.length > 0) {
+        // Fetch issues for selected milestones only (single query with array)
+        const selectedMilestones = milestonesData.filter(m => milestoneIds.includes(m.id));
+        const milestoneTitles = selectedMilestones.map(m => m.title);
+        issuesData = await fetchAllIssuesAsWorkItems({
+          state: stateFilter,
+          milestoneTitles,
+        });
+        console.log(`Fetched ${issuesData.length} issues for ${selectedMilestones.length} selected milestones`);
+      } else {
+        // Fetch all issues
+        issuesData = await fetchAllIssuesAsWorkItems({ state: stateFilter });
+        console.log(`Fetched ${issuesData.length} issues (all milestones)`);
+      }
 
       const enrichedIssues = enrichIssuesWithLabels(issuesData, labelsData);
       const ganttTasks = convertToGanttTasks(milestonesData, enrichedIssues);
 
-      setMilestones(milestonesData);
       setIssues(enrichedIssues);
-      setLabels(labelsData);
       setAllTasks(ganttTasks);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
@@ -313,16 +404,23 @@ export function useGitLabData(): UseGitLabDataResult {
     } finally {
       setLoading(false);
     }
-  }, [filterOptions.issueState]);
+  }, [filterOptions.issueState, filterOptions.selectedMilestoneIds]);
 
   const setFilterOptions = useCallback((options: FilterOptions) => {
     const stateChanged = options.issueState !== filterOptions.issueState;
+    const milestonesChanged =
+      options.selectedMilestoneIds.length !== filterOptions.selectedMilestoneIds.length ||
+      options.selectedMilestoneIds.some(id => !filterOptions.selectedMilestoneIds.includes(id));
+
     setFilterOptionsState(options);
-    // Re-fetch from API if state filter changed
-    if (stateChanged) {
-      loadData({ state: options.issueState });
+    // Save to localStorage
+    saveFilterToStorage(options);
+
+    // Re-fetch from API if state or milestone filter changed
+    if (stateChanged || milestonesChanged) {
+      loadData({ state: options.issueState, selectedMilestoneIds: options.selectedMilestoneIds });
     }
-  }, [filterOptions.issueState, loadData]);
+  }, [filterOptions.issueState, filterOptions.selectedMilestoneIds, loadData]);
 
   const updateTaskDates = useCallback(
     async (taskId: string, start: Date, end: Date) => {
@@ -398,7 +496,10 @@ export function useGitLabData(): UseGitLabDataResult {
     loadData();
   }, [loadData]);
 
-  const refresh = useCallback(() => loadData(), [loadData]);
+  const refresh = useCallback(() => loadData({
+    state: filterOptions.issueState,
+    selectedMilestoneIds: filterOptions.selectedMilestoneIds,
+  }), [loadData, filterOptions.issueState, filterOptions.selectedMilestoneIds]);
 
   return {
     tasks,

@@ -159,12 +159,13 @@ interface WorkItemsGraphQLResponse {
 export interface FetchIssuesOptions {
   state?: 'opened' | 'closed' | 'all';
   updatedAfter?: string; // ISO date string
+  milestoneTitles?: string[]; // Filter by milestone titles
 }
 
 export async function fetchAllIssuesAsWorkItems(
   options: FetchIssuesOptions = {}
 ): Promise<GitLabIssue[]> {
-  const { state = 'opened', updatedAfter } = options;
+  const { state = 'opened', updatedAfter, milestoneTitles } = options;
 
   const graphqlHeaders = {
     'Authorization': `Bearer ${GITLAB_TOKEN}`,
@@ -173,7 +174,7 @@ export async function fetchAllIssuesAsWorkItems(
 
   // Get the project path for GraphQL
   const projectPath = await getProjectPath();
-  console.log('Using project path for GraphQL:', projectPath, 'state:', state);
+  console.log('Using project path for GraphQL:', projectPath, 'state:', state, 'milestones:', milestoneTitles?.join(', ') || 'all');
 
   const issues: GitLabIssue[] = [];
   let hasNextPage = true;
@@ -182,16 +183,19 @@ export async function fetchAllIssuesAsWorkItems(
   // Map state to GraphQL enum (null means no filter)
   // GitLab uses lowercase: opened, closed, locked, all
   const stateFilter = state === 'all' ? null : state;
+  const hasMilestoneFilter = milestoneTitles && milestoneTitles.length > 0;
 
   while (hasNextPage) {
-    // Build query dynamically based on whether we have a state filter
+    // Build query dynamically based on filters
     const stateVarDef = stateFilter ? ', $state: IssuableState' : '';
     const stateArg = stateFilter ? ', state: $state' : '';
+    const milestoneVarDef = hasMilestoneFilter ? ', $milestoneTitles: [String!]' : '';
+    const milestoneArg = hasMilestoneFilter ? ', milestoneTitle: $milestoneTitles' : '';
 
     const query = `
-      query GetProjectWorkItems($fullPath: ID!, $after: String${stateVarDef}, $updatedAfter: Time) {
+      query GetProjectWorkItems($fullPath: ID!, $after: String${stateVarDef}${milestoneVarDef}, $updatedAfter: Time) {
         project(fullPath: $fullPath) {
-          workItems(after: $after, first: 100, types: [ISSUE]${stateArg}, updatedAfter: $updatedAfter) {
+          workItems(after: $after, first: 100, types: [ISSUE]${stateArg}${milestoneArg}, updatedAfter: $updatedAfter) {
             nodes {
               id
               iid
@@ -264,6 +268,9 @@ export async function fetchAllIssuesAsWorkItems(
     };
     if (stateFilter) {
       variables.state = stateFilter;
+    }
+    if (hasMilestoneFilter) {
+      variables.milestoneTitles = milestoneTitles;
     }
 
     const response = await fetch(`${GITLAB_URL}/api/graphql`, {

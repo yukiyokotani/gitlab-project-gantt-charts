@@ -1,6 +1,11 @@
-import { RefreshCw, Sun, Moon, Loader2 } from 'lucide-react';
+import { RefreshCw, Sun, Moon, Loader2, Milestone, ChevronDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -9,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { FilterOptions } from '../hooks/useGitLabData';
+import type { GitLabMilestone } from '../types/gitlab';
 
 interface HeaderProps {
   theme: 'light' | 'dark';
@@ -17,6 +23,7 @@ interface HeaderProps {
   loading: boolean;
   filterOptions?: FilterOptions;
   onFilterChange?: (options: FilterOptions) => void;
+  milestones?: GitLabMilestone[];
 }
 
 export function Header({
@@ -26,6 +33,7 @@ export function Header({
   loading,
   filterOptions,
   onFilterChange,
+  milestones = [],
 }: HeaderProps) {
   const handleStateChange = (value: string) => {
     if (filterOptions && onFilterChange) {
@@ -59,6 +67,33 @@ export function Header({
       });
     }
   };
+
+  const handleMilestoneToggle = (milestoneId: number) => {
+    if (filterOptions && onFilterChange) {
+      const currentIds = filterOptions.selectedMilestoneIds;
+      const newIds = currentIds.includes(milestoneId)
+        ? currentIds.filter(id => id !== milestoneId)
+        : [...currentIds, milestoneId];
+      onFilterChange({
+        ...filterOptions,
+        selectedMilestoneIds: newIds,
+      });
+    }
+  };
+
+  const handleSelectAllMilestones = () => {
+    if (filterOptions && onFilterChange) {
+      onFilterChange({
+        ...filterOptions,
+        selectedMilestoneIds: [],
+      });
+    }
+  };
+
+  const selectedMilestoneCount = filterOptions?.selectedMilestoneIds.length || 0;
+  const milestoneFilterLabel = selectedMilestoneCount === 0
+    ? 'すべて'
+    : `${selectedMilestoneCount}件選択中`;
 
   return (
     <header className="flex items-center justify-between gap-4 px-6 py-3 bg-card border-b border-border shadow-sm">
@@ -107,6 +142,55 @@ export function Header({
               onDateChange={handleEndDateChange}
               placeholder="終了日"
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-muted-foreground">
+              マイルストーン:
+            </label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  disabled={milestones.length === 0}
+                  className="flex h-9 w-[140px] items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Milestone className="size-4" />
+                    {milestones.length === 0 ? '読込中...' : milestoneFilterLabel}
+                  </span>
+                  <ChevronDown className="size-4 opacity-50" />
+                </button>
+              </PopoverTrigger>
+                <PopoverContent align="start" className="w-64 p-2">
+                  <div className="space-y-1">
+                    <button
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                      onClick={handleSelectAllMilestones}
+                    >
+                      <div className="flex size-4 items-center justify-center rounded border">
+                        {selectedMilestoneCount === 0 && <Check className="size-3" />}
+                      </div>
+                      <span>すべて表示</span>
+                    </button>
+                    <div className="my-1 h-px bg-border" />
+                    {milestones.map(milestone => {
+                      const isSelected = filterOptions.selectedMilestoneIds.includes(milestone.id);
+                      return (
+                        <button
+                          key={milestone.id}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                          onClick={() => handleMilestoneToggle(milestone.id)}
+                        >
+                          <div className="flex size-4 items-center justify-center rounded border">
+                            {isSelected && <Check className="size-3" />}
+                          </div>
+                          <span className="truncate">{milestone.title}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+            </Popover>
           </div>
         </div>
       )}
