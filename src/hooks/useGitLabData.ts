@@ -213,6 +213,11 @@ function filterTasksByDateRange(
     // Always include subtasks if their parent is included
     if (task.isSubtask) return true;
 
+    // Include issues without explicit dates (they will extend to display bounds)
+    if (!task.hasOriginalStartDate && !task.hasOriginalDueDate) {
+      return true;
+    }
+
     // Check if task overlaps with date range
     const taskStart = task.start;
     const taskEnd = task.end;
