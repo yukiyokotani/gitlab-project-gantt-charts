@@ -215,9 +215,7 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
                 <ExternalLink className="size-3.5" />
               </Button>
             </a>
-            <DialogClose>
-              <Button variant="secondary">閉じる</Button>
-            </DialogClose>
+            <Button variant="secondary" onClick={onClose}>閉じる</Button>
           </DialogFooter>
         </DialogContent>
       </DialogPortal>

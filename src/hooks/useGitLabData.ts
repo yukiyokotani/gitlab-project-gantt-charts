@@ -52,32 +52,12 @@ function convertToGanttTasks(
   const today = new Date();
   const defaultDuration = 7; // days
 
-  // First, calculate date ranges for each milestone based on child issues
-  const milestoneDateRanges = new Map<number, { minStart: Date; maxEnd: Date }>();
-
-  for (const issue of issues) {
-    if (!issue.milestone?.id) continue;
-
-    const milestoneId = issue.milestone.id;
-    const issueStart = parseDate(issue.start_date) || parseDate(issue.created_at) || today;
-    const issueEnd = parseDate(issue.due_date) || new Date(issueStart.getTime() + defaultDuration * 24 * 60 * 60 * 1000);
-
-    const existing = milestoneDateRanges.get(milestoneId);
-    if (existing) {
-      if (issueStart < existing.minStart) existing.minStart = issueStart;
-      if (issueEnd > existing.maxEnd) existing.maxEnd = issueEnd;
-    } else {
-      milestoneDateRanges.set(milestoneId, { minStart: issueStart, maxEnd: issueEnd });
-    }
-  }
-
-  // Create milestone tasks (summary type)
-  // Milestone dates are calculated from child issues (not from GitLab milestone dates)
-  // hasOriginalStartDate/hasOriginalDueDate are always true to prevent date extension
+  // Create milestone tasks using GitLab's start_date and due_date
   for (const milestone of milestones) {
-    const dateRange = milestoneDateRanges.get(milestone.id);
-    const start = dateRange?.minStart || today;
-    const end = dateRange?.maxEnd || new Date(today.getTime() + defaultDuration * 24 * 60 * 60 * 1000);
+    const hasOriginalStartDate = !!parseDate(milestone.start_date);
+    const hasOriginalDueDate = !!parseDate(milestone.due_date);
+    const start = parseDate(milestone.start_date) || today;
+    const end = parseDate(milestone.due_date) || new Date(start.getTime() + defaultDuration * 24 * 60 * 60 * 1000);
 
     tasks.push({
       id: `milestone-${milestone.id}`,
@@ -89,8 +69,8 @@ function convertToGanttTasks(
       gitlabId: milestone.id,
       webUrl: milestone.web_url,
       milestoneId: milestone.id,
-      hasOriginalStartDate: true,
-      hasOriginalDueDate: true,
+      hasOriginalStartDate,
+      hasOriginalDueDate,
     });
   }
 
