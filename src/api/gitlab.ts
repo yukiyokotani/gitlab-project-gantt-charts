@@ -110,7 +110,6 @@ interface WorkItemNode {
     // StartAndDueDateWidget fields
     startDate?: string | null;
     dueDate?: string | null;
-    isFixed?: boolean;
     // Assignees widget
     assignees?: {
       nodes: Array<{
@@ -217,7 +216,6 @@ export async function fetchAllIssuesAsWorkItems(
                   __typename
                   startDate
                   dueDate
-                  isFixed
                 }
                 ... on WorkItemWidgetAssignees {
                   __typename
@@ -437,7 +435,6 @@ export async function updateIssue(
           startAndDueDateWidget: {
             startDate: $startDate
             dueDate: $dueDate
-            isFixed: true
           }
         }
       ) {
