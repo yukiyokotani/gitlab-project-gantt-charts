@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useEffect } from 'react';
+import { useCallback, useMemo, useRef, useEffect, memo } from 'react';
 import { Gantt, Willow, WillowDark } from '@svar-ui/react-gantt';
 import '@svar-ui/react-gantt/all.css';
 import { format } from 'date-fns';
@@ -16,7 +16,28 @@ interface GanttChartProps {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type GanttApi = any;
 
-export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttChartProps) {
+// Custom comparison function for memo - only re-render if tasks or theme actually change
+function arePropsEqual(prevProps: GanttChartProps, nextProps: GanttChartProps): boolean {
+  // Compare theme
+  if (prevProps.theme !== nextProps.theme) return false;
+
+  // Compare tasks by reference first (fast path)
+  if (prevProps.tasks === nextProps.tasks) return true;
+
+  // Compare tasks length
+  if (prevProps.tasks.length !== nextProps.tasks.length) return false;
+
+  // Compare task IDs to detect actual data changes
+  for (let i = 0; i < prevProps.tasks.length; i++) {
+    if (prevProps.tasks[i].id !== nextProps.tasks[i].id) return false;
+    if (prevProps.tasks[i].start?.getTime() !== nextProps.tasks[i].start?.getTime()) return false;
+    if (prevProps.tasks[i].end?.getTime() !== nextProps.tasks[i].end?.getTime()) return false;
+  }
+
+  return true;
+}
+
+export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttChartProps) {
   const apiRef = useRef<GanttApi>(null);
 
   // Create ID mapping (string -> number for svar)
@@ -332,4 +353,4 @@ export function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttCha
       </ThemeWrapper>
     </div>
   );
-}
+}, arePropsEqual);
