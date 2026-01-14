@@ -369,7 +369,7 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
 
   // Column configuration
   const columns = useMemo(() => [
-    { id: 'text', header: 'タスク名', flexgrow: 1, cell: TaskNameCell },
+    { id: 'text', header: 'タスク名', width: 280, cell: TaskNameCell },
     {
       id: 'assignees',
       header: '担当者',
