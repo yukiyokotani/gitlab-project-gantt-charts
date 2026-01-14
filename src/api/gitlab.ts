@@ -195,7 +195,7 @@ export async function fetchAllIssuesAsWorkItems(
     const query = `
       query GetProjectWorkItems($fullPath: ID!, $after: String${stateVarDef}${milestoneVarDef}, $updatedAfter: Time) {
         project(fullPath: $fullPath) {
-          workItems(after: $after, first: 100, types: [ISSUE]${stateArg}${milestoneArg}, updatedAfter: $updatedAfter) {
+          workItems(after: $after, first: 100, types: [ISSUE]${stateArg}${milestoneArg}, updatedAfter: $updatedAfter, sort: START_DATE_ASC) {
             nodes {
               id
               iid
