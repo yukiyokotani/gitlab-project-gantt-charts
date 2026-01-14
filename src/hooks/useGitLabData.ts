@@ -60,7 +60,7 @@ function convertToGanttTasks(
 
     tasks.push({
       id: `milestone-${milestone.id}`,
-      text: `📁 ${milestone.title}`,
+      text: milestone.title,
       start,
       end,
       type: 'summary',
@@ -181,13 +181,13 @@ function getDemoTasks(): GanttTask[] {
   ];
 }
 
-// Default filter: 3 months before and after today
+// Default filter: 1 month before to 2 months after today
 function getDefaultDateRange(): DateRangeFilter {
   const today = new Date();
   const startDate = new Date(today);
-  startDate.setMonth(startDate.getMonth() - 3);
+  startDate.setMonth(startDate.getMonth() - 1);
   const endDate = new Date(today);
-  endDate.setMonth(endDate.getMonth() + 3);
+  endDate.setMonth(endDate.getMonth() + 2);
   return { startDate, endDate };
 }
 

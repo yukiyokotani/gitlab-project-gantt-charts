@@ -69,6 +69,27 @@
   font-size: 10px !important;
 }
 
+/* Task name cell with milestone icon */
+.gantt-wrapper .task-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.gantt-wrapper .milestone-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--muted-foreground, #6b7280);
+}
+
+.gantt-wrapper .task-name-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Assignee avatars in grid */
 .gantt-wrapper .assignee-cell {
   display: flex;

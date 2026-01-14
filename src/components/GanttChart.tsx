@@ -3,23 +3,34 @@ import { Gantt, Willow, WillowDark } from '@svar-ui/react-gantt';
 import '@svar-ui/react-gantt/all.css';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { Milestone } from 'lucide-react';
 import type { GanttTask } from '../types/gantt';
 import './GanttChart.css';
+
+interface DateRangeFilter {
+  startDate: Date | null;
+  endDate: Date | null;
+}
 
 interface GanttChartProps {
   tasks: GanttTask[];
   theme: 'light' | 'dark';
   onTaskClick: (taskId: string) => void;
   onTaskUpdate: (taskId: string, start: Date, end: Date) => void;
+  dateRange?: DateRangeFilter;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type GanttApi = any;
 
-// Custom comparison function for memo - only re-render if tasks or theme actually change
+// Custom comparison function for memo - only re-render if tasks, theme, or dateRange actually change
 function arePropsEqual(prevProps: GanttChartProps, nextProps: GanttChartProps): boolean {
   // Compare theme
   if (prevProps.theme !== nextProps.theme) return false;
+
+  // Compare dateRange
+  if (prevProps.dateRange?.startDate?.getTime() !== nextProps.dateRange?.startDate?.getTime()) return false;
+  if (prevProps.dateRange?.endDate?.getTime() !== nextProps.dateRange?.endDate?.getTime()) return false;
 
   // Compare tasks by reference first (fast path)
   if (prevProps.tasks === nextProps.tasks) return true;
@@ -37,7 +48,7 @@ function arePropsEqual(prevProps: GanttChartProps, nextProps: GanttChartProps): 
   return true;
 }
 
-export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate }: GanttChartProps) {
+export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate, dateRange: filterDateRange }: GanttChartProps) {
   const apiRef = useRef<GanttApi>(null);
 
   // Create ID mapping (string -> number for svar)
@@ -197,6 +208,18 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
     return '';
   };
 
+  // Task name cell component with milestone icon
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const TaskNameCell = ({ row }: { row: any }) => {
+    const isMilestone = row.type === 'summary';
+    return (
+      <div className="task-name-cell">
+        {isMilestone && <Milestone className="milestone-icon" />}
+        <span className="task-name-text">{row.text}</span>
+      </div>
+    );
+  };
+
   // Assignee cell component
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const AssigneeCell = ({ row }: { row: any }) => {
@@ -219,7 +242,7 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
 
   // Column configuration
   const columns = useMemo(() => [
-    { id: 'text', header: 'タスク名', flexgrow: 1 },
+    { id: 'text', header: 'タスク名', flexgrow: 1, cell: TaskNameCell },
     {
       id: 'assignees',
       header: '担当者',
@@ -257,8 +280,8 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
     idMappingRef.current = idMapping;
   }, [onTaskClick, onTaskUpdate, idMapping]);
 
-  // Scroll to today's date
-  const scrollToToday = useCallback((api: GanttApi) => {
+  // Scroll to a specific date
+  const scrollToDate = useCallback((api: GanttApi, targetDate: Date) => {
     // Wait for render to complete
     setTimeout(() => {
       try {
@@ -266,24 +289,23 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
         const scales = state._scales;
         if (!scales) return;
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const date = new Date(targetDate);
+        date.setHours(0, 0, 0, 0);
 
-        // Calculate pixel position for today
+        // Calculate pixel position for the target date
         const scaleStart = scales.start;
         if (!scaleStart) return;
 
         // Use scale's diff function to calculate position
-        const diffDays = scales.diff(today, scaleStart);
+        const diffDays = scales.diff(date, scaleStart);
         const pixelPosition = diffDays * scales.lengthUnitWidth;
 
-        // Scroll to position (with some padding to show context before today)
-        const padding = 50; // Show a bit before today
-        const scrollLeft = Math.max(0, pixelPosition - padding);
+        // Scroll to position
+        const scrollLeft = Math.max(0, pixelPosition);
 
         api.exec('scroll-chart', { left: scrollLeft });
       } catch (err) {
-        console.warn('Failed to scroll to today:', err);
+        console.warn('Failed to scroll to date:', err);
       }
     }, 100);
   }, []);
@@ -291,9 +313,6 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
   // Initialize Gantt API and set up event handlers
   const handleInit = useCallback((api: GanttApi) => {
     apiRef.current = api;
-
-    // Scroll to today's date on init
-    scrollToToday(api);
 
     api.on('select-task', (ev: { id: number }) => {
       if (ev.id) {
@@ -315,19 +334,48 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
         }
       }
     });
-  }, [scrollToToday]);
+  }, []);
+
+  // Scroll to filter start date when API is ready
+  useEffect(() => {
+    if (apiRef.current && filterDateRange?.startDate) {
+      scrollToDate(apiRef.current, filterDateRange.startDate);
+    }
+  }, [filterDateRange?.startDate, scrollToDate]);
 
   // Theme wrapper component
   const ThemeWrapper = theme === 'dark' ? WillowDark : Willow;
 
-  // Generate a stable key based on task IDs to force re-mount when dataset changes significantly
+  // Calculate the start date for the Gantt chart view
+  const ganttStartDate = useMemo(() => {
+    // Use filter start date if available
+    if (filterDateRange?.startDate) {
+      return filterDateRange.startDate;
+    }
+    // Otherwise use the earliest task date
+    return dateRange.minDate;
+  }, [filterDateRange?.startDate, dateRange.minDate]);
+
+  // Calculate the end date for the Gantt chart view
+  const ganttEndDate = useMemo(() => {
+    // Use filter end date if available
+    if (filterDateRange?.endDate) {
+      return filterDateRange.endDate;
+    }
+    // Otherwise use the latest task date
+    return dateRange.maxDate;
+  }, [filterDateRange?.endDate, dateRange.maxDate]);
+
+  // Generate a stable key based on task IDs and date range to force re-mount when dataset changes significantly
   // This prevents SVAR Gantt from crashing during transitions
   const ganttKey = useMemo(() => {
     if (svarTasks.length === 0) return 'empty';
-    // Use first few task IDs and count to create a stable key
+    // Use first few task IDs, count, and date range to create a stable key
     const firstIds = svarTasks.slice(0, 5).map(t => t.id).join('-');
-    return `gantt-${svarTasks.length}-${firstIds}`;
-  }, [svarTasks]);
+    const startKey = ganttStartDate.getTime();
+    const endKey = ganttEndDate.getTime();
+    return `gantt-${svarTasks.length}-${firstIds}-${startKey}-${endKey}`;
+  }, [svarTasks, ganttStartDate, ganttEndDate]);
 
   if (tasks.length === 0 || svarTasks.length === 0) {
     return (
@@ -348,6 +396,9 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
           columns={columns}
           cellHeight={28}
           cellWidth={60}
+          start={ganttStartDate}
+          end={ganttEndDate}
+          autoScale={false}
           highlightTime={highlightWeekends}
         />
       </ThemeWrapper>

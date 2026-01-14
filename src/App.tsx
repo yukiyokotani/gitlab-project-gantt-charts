@@ -178,6 +178,7 @@ function App() {
             theme={theme}
             onTaskClick={handleTaskClick}
             onTaskUpdate={handleTaskUpdate}
+            dateRange={filterOptions.dateRange}
           />
         )}
       </main>
