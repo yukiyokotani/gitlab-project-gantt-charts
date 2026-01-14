@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
+const GITLAB_URL = import.meta.env.VITE_GITLAB_URL || 'https://gitlab.com';
+
 function Avatar({ className, ...props }: React.ComponentProps<'span'>) {
   return (
     <span
@@ -13,6 +15,10 @@ function Avatar({ className, ...props }: React.ComponentProps<'span'>) {
   );
 }
 
+function resolveUrl(src: string, base: string) {
+  return new URL(src, base).toString();
+}
+
 function AvatarImage({
   className,
   src,
@@ -23,9 +29,11 @@ function AvatarImage({
 
   if (hasError || !src) return null;
 
+  const avaterSrc = resolveUrl(src, GITLAB_URL);
+
   return (
     <img
-      src={src}
+      src={avaterSrc}
       alt={alt}
       onError={() => setHasError(true)}
       className={cn('aspect-square size-full object-cover', className)}
