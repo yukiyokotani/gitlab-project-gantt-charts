@@ -56,7 +56,7 @@ function DialogContent({
     <div
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 grid w-full max-w-[560px] max-h-[85vh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-auto rounded-xl border bg-card p-6 shadow-2xl',
+        'fixed left-1/2 top-1/2 z-50 grid w-full max-w-140 max-h-[85vh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-auto rounded-xl border bg-card p-6 shadow-2xl',
         'animate-in fade-in-0 zoom-in-95 slide-in-from-left-1/2 slide-in-from-top-[48%]',
         className
       )}

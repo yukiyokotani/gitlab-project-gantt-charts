@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useEffect, memo } from 'react';
+import { useCallback, useMemo, useRef, useEffect, useState, memo } from 'react';
 import { Gantt, Tooltip, Willow, WillowDark } from '@svar-ui/react-gantt';
 import '@svar-ui/react-gantt/all.css';
 import { format } from 'date-fns';
@@ -50,6 +50,23 @@ function arePropsEqual(prevProps: GanttChartProps, nextProps: GanttChartProps): 
 
 export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate, dateRange: filterDateRange }: GanttChartProps) {
   const apiRef = useRef<GanttApi>(null);
+  const [holidays, setHolidays] = useState<Set<string>>(new Set());
+  const holidaysFetchedRef = useRef(false);
+
+  // Fetch Japanese holidays (prevent duplicate in StrictMode)
+  useEffect(() => {
+    if (holidaysFetchedRef.current) return;
+    holidaysFetchedRef.current = true;
+
+    fetch('https://holidays-jp.github.io/api/v1/date.json')
+      .then(res => res.json())
+      .then((data: Record<string, string>) => {
+        setHolidays(new Set(Object.keys(data)));
+      })
+      .catch(err => {
+        console.warn('Failed to fetch holidays:', err);
+      });
+  }, []);
 
   // Create ID mapping (string -> number for svar)
   const idMapping = useMemo(() => {
@@ -198,7 +215,7 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
       }
       return a.id - b.id;
     });
-  }, [tasks, idMapping, dateRange]);
+  }, [tasks, idMapping.stringToNum, idMapping.numToString, filterDateRange?.startDate, filterDateRange?.endDate, dateRange.minDate, dateRange.maxDate]);
 
   // Scale configuration - using date-fns format functions
   const scales = useMemo(() => [
@@ -214,16 +231,25 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
     },
   ], []);
 
-  // Highlight weekends (Saturday and Sunday) - only for day unit, not month header
-  const highlightWeekends = (date: Date, unit: 'day' | 'hour') => {
+  // Highlight weekends and holidays - only for day unit, not month header
+  const highlightWeekendsAndHolidays = useCallback((date: Date, unit: 'day' | 'hour') => {
     // Only highlight day cells, not month headers
     if (unit !== 'day') return '';
+
+    // Check weekend
     const day = date.getDay();
     if (day === 0 || day === 6) {
       return 'wx-weekend';
     }
+
+    // Check holiday (format: YYYY-MM-DD)
+    const dateStr = format(date, 'yyyy-MM-dd');
+    if (holidays.has(dateStr)) {
+      return 'wx-weekend';
+    }
+
     return '';
-  };
+  }, [holidays]);
 
   // Task name cell component with milestone icon
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -504,7 +530,7 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
             start={ganttStartDate}
             end={ganttEndDate}
             autoScale={false}
-            highlightTime={highlightWeekends}
+            highlightTime={highlightWeekendsAndHolidays}
             taskTemplate={TaskTemplate}
           />
         </Tooltip>
