@@ -508,6 +508,24 @@ export function enrichIssuesWithLabels(
   }));
 }
 
+export async function updateMilestone(
+  milestoneId: number,
+  updates: { start_date?: string; due_date?: string }
+): Promise<void> {
+  const url = `${GITLAB_URL}/api/v4/projects/${encodeURIComponent(GITLAB_PROJECT_ID)}/milestones/${milestoneId}`;
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to update milestone: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+}
+
 export function getGitLabConfig() {
   return {
     url: GITLAB_URL,

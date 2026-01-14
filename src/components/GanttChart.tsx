@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useEffect, memo } from 'react';
-import { Gantt, Willow, WillowDark } from '@svar-ui/react-gantt';
+import { Gantt, Tooltip, Willow, WillowDark } from '@svar-ui/react-gantt';
 import '@svar-ui/react-gantt/all.css';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -109,18 +109,23 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
       const hasOriginalStart = task.hasOriginalStartDate === true;
       const hasOriginalEnd = task.hasOriginalDueDate === true;
 
+      // Use filter date range for undefined dates (display range as bounds)
+      const displayStartBound = filterDateRange?.startDate || dateRange.minDate;
+      const displayEndBound = filterDateRange?.endDate || dateRange.maxDate;
+
+      // Use provided date or extend to display bounds based on hasOriginal flags
       if (hasOriginalStart && task.start instanceof Date && !isNaN(task.start.getTime())) {
         start = task.start;
       } else {
-        // No original start date - extend to the minimum
-        start = dateRange.minDate;
+        // No original start date - use display range start as bound
+        start = displayStartBound;
       }
 
       if (hasOriginalEnd && task.end instanceof Date && !isNaN(task.end.getTime())) {
         end = task.end;
       } else {
-        // No original end date - extend to the maximum
-        end = dateRange.maxDate;
+        // No original end date - use display range end as bound
+        end = displayEndBound;
       }
 
       // Ensure end is after start
@@ -129,6 +134,9 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
       }
 
       // Basic task object matching svar's expected structure
+      // Note: We use 'task' type for milestones too to prevent SVAR's auto date calculation
+      // The original type is stored in 'originalType' for rendering purposes
+      const isMilestone = task.type === 'summary';
       const svarTask: {
         id: number;
         text: string;
@@ -136,6 +144,8 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
         end: Date;
         progress: number;
         type: string;
+        originalType: string;
+        css?: string;
         parent?: number;
         open?: boolean;
         // Custom fields to track original dates
@@ -151,7 +161,11 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
         start,
         end,
         progress: task.progress || 0,
-        type: task.type || 'task',
+        // Always use 'task' type to prevent SVAR from auto-calculating summary dates
+        type: 'task',
+        originalType: task.type || 'task',
+        // Add CSS class for milestones
+        css: isMilestone ? 'milestone-row' : undefined,
         hasOriginalStart,
         hasOriginalEnd,
         originalStart: hasOriginalStart ? task.start : null,
@@ -164,6 +178,7 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
         svarTask.parent = parentNumId;
       }
 
+      // Set open for milestone rows (they were originally 'summary' type)
       if (task.type === 'summary') {
         svarTask.open = true;
       }
@@ -199,8 +214,10 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
     },
   ], []);
 
-  // Highlight weekends (Saturday and Sunday)
-  const highlightWeekends = (date: Date) => {
+  // Highlight weekends (Saturday and Sunday) - only for day unit, not month header
+  const highlightWeekends = (date: Date, unit: 'day' | 'hour') => {
+    // Only highlight day cells, not month headers
+    if (unit !== 'day') return '';
     const day = date.getDay();
     if (day === 0 || day === 6) {
       return 'wx-weekend';
@@ -211,7 +228,7 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
   // Task name cell component with milestone icon
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const TaskNameCell = ({ row }: { row: any }) => {
-    const isMilestone = row.type === 'summary';
+    const isMilestone = row.originalType === 'summary';
     return (
       <div className="task-name-cell">
         {isMilestone && <Milestone className="milestone-icon" />}
@@ -236,6 +253,90 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
             <span className="assignee-name">{a.name}</span>
           </div>
         ))}
+      </div>
+    );
+  };
+
+  // Custom tooltip content
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const TooltipContent = ({ data }: { data: any }) => {
+    if (!data) return null;
+
+    const startDate = data.originalStart instanceof Date
+      ? format(data.originalStart, 'yyyy/MM/dd')
+      : '-';
+    const endDate = data.originalEnd instanceof Date
+      ? format(data.originalEnd, 'yyyy/MM/dd')
+      : '-';
+    const assignees = data.assignees || [];
+
+    return (
+      <div className="gantt-tooltip">
+        <div className="gantt-tooltip-title">{data.text}</div>
+        <div className="gantt-tooltip-row">
+          <span className="gantt-tooltip-label">開始日:</span>
+          <span>{startDate}</span>
+        </div>
+        <div className="gantt-tooltip-row">
+          <span className="gantt-tooltip-label">終了日:</span>
+          <span>{endDate}</span>
+        </div>
+        {assignees.length > 0 && (
+          <div className="gantt-tooltip-row">
+            <span className="gantt-tooltip-label">担当者:</span>
+            <span>{assignees.map((a: { name: string }) => a.name).join(', ')}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Custom task bar template for different colors
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const TaskTemplate = ({ data }: { data: any }) => {
+    const isMilestone = data.originalType === 'summary';
+    const progress = data.progress || 0;
+    const bgColor = isMilestone ? '#9C27B0' : '#2196F3';
+
+    return (
+      <div
+        className="custom-task-bar"
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+          backgroundColor: bgColor,
+          border: 'none',
+          borderRadius: '2px',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          className="task-bar-progress"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            height: '100%',
+            width: `${progress}%`,
+            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+          }}
+        />
+        <span
+          className="task-bar-text"
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            padding: '0 6px',
+            fontSize: '10px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            color: 'white',
+          }}
+        >
+          {data.text}
+        </span>
       </div>
     );
   };
@@ -327,8 +428,11 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
       // Only update when drag is complete (inProgress is false or undefined)
       if (ev.id && ev.task && !ev.inProgress) {
         const originalId = idMappingRef.current.numToString.get(ev.id);
-        if (originalId && originalId.startsWith('issue-') && !originalId.includes('-task-')) {
-          if (ev.task.start && ev.task.end) {
+        if (originalId) {
+          // Handle both issue and milestone updates
+          const isIssue = originalId.startsWith('issue-') && !originalId.includes('-task-');
+          const isMilestone = originalId.startsWith('milestone-');
+          if ((isIssue || isMilestone) && ev.task.start && ev.task.end) {
             onTaskUpdateRef.current(originalId, ev.task.start, ev.task.end);
           }
         }
@@ -388,19 +492,22 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
   return (
     <div className="gantt-wrapper" key={ganttKey}>
       <ThemeWrapper>
-        <Gantt
-          init={handleInit}
-          tasks={svarTasks}
-          links={[]}
-          scales={scales}
-          columns={columns}
-          cellHeight={28}
-          cellWidth={60}
-          start={ganttStartDate}
-          end={ganttEndDate}
-          autoScale={false}
-          highlightTime={highlightWeekends}
-        />
+        <Tooltip api={apiRef.current} content={TooltipContent}>
+          <Gantt
+            init={handleInit}
+            tasks={svarTasks}
+            links={[]}
+            scales={scales}
+            columns={columns}
+            cellHeight={28}
+            cellWidth={60}
+            start={ganttStartDate}
+            end={ganttEndDate}
+            autoScale={false}
+            highlightTime={highlightWeekends}
+            taskTemplate={TaskTemplate}
+          />
+        </Tooltip>
       </ThemeWrapper>
     </div>
   );
