@@ -1,4 +1,4 @@
-import { RefreshCw, Sun, Moon, Loader2, Milestone, ChevronDown, Check } from 'lucide-react';
+import { RefreshCw, Sun, Moon, Loader2, Milestone, ChevronDown, Check, GanttChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import {
@@ -99,7 +99,7 @@ export function Header({
     <header className="flex items-center justify-between gap-4 px-6 py-3 bg-card border-b border-border shadow-sm">
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center size-9 rounded-lg bg-primary/10">
-          <span className="text-lg">📊</span>
+          <GanttChart className='size-4'/>
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-foreground">
           GitLab Gantt Chart
@@ -116,7 +116,7 @@ export function Header({
               value={filterOptions.issueState}
               onValueChange={handleStateChange}
             >
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-30">
                 <SelectValue placeholder="選択..." />
               </SelectTrigger>
               <SelectContent>
@@ -152,7 +152,7 @@ export function Header({
               <PopoverTrigger asChild>
                 <button
                   disabled={milestones.length === 0}
-                  className="flex h-9 w-[140px] items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-9 w-35 items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="flex items-center gap-2">
                     <Milestone className="size-4" />
