@@ -37,7 +37,7 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
           <DialogClose />
 
           <DialogHeader>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mt-1 mb-1">
               <Badge variant={issue.state === 'opened' ? 'success' : 'secondary'}>
                 {issue.state === 'opened' ? 'Open' : 'Closed'}
               </Badge>
@@ -76,7 +76,7 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   作成者
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-1">
                   <Avatar className="size-6">
                     <AvatarImage
                       src={issue.author.avatar_url}
@@ -99,7 +99,7 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {issue.assignees.map((assignee) => (
-                    <div key={assignee.id} className="flex items-center gap-2">
+                    <div key={assignee.id} className="flex items-center gap-2 mt-1">
                       <Avatar className="size-6">
                         <AvatarImage
                           src={assignee.avatar_url}
@@ -122,7 +122,7 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   マイルストーン
                 </span>
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 mt-1 text-sm">
                   <Milestone className="size-4 text-muted-foreground" />
                   <span>{issue.milestone.title}</span>
                 </div>
@@ -134,7 +134,7 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 開始日
               </span>
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 mt-1 text-sm">
                 <Calendar className="size-4 text-muted-foreground" />
                 {issue.start_date || (
                   <span className="text-muted-foreground">未設定</span>
@@ -147,7 +147,7 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 期限
               </span>
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 mt-1 text-sm">
                 <Calendar className="size-4 text-muted-foreground" />
                 {issue.due_date || (
                   <span className="text-muted-foreground">未設定</span>
