@@ -173,6 +173,8 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
         originalEnd: Date | null;
         // Assignees
         assignees: { id: number; name: string; avatarUrl: string }[];
+        // Issue state
+        issueState?: 'opened' | 'closed';
       } = {
         id: numId,
         text: task.text || 'Untitled',
@@ -189,6 +191,7 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
         originalStart: hasOriginalStart ? task.start : null,
         originalEnd: hasOriginalEnd ? task.end : null,
         assignees: task.assignees || [],
+        issueState: task.issueState,
       };
 
       // Only add parent if it exists in the mapping
@@ -323,8 +326,10 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const TaskTemplate = ({ data }: { data: any }) => {
     const isMilestone = data.originalType === 'summary';
+    const isClosed = data.issueState === 'closed';
     const progress = data.progress || 0;
-    const bgColor = isMilestone ? '#9C27B0' : '#2196F3';
+    // Milestone: purple, Closed issue: grayish blue, Open issue: blue
+    const bgColor = isMilestone ? '#9C27B0' : isClosed ? '#3c6f99' : '#2196F3';
 
     return (
       <div
