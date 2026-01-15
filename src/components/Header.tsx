@@ -161,7 +161,7 @@ export function Header({
                   <ChevronDown className="size-4 opacity-50" />
                 </button>
               </PopoverTrigger>
-                <PopoverContent align="start" className="max-h-screen overflow-auto w-64 p-2">
+                <PopoverContent align="start" className="max-h-[calc(100vh-80px)] overflow-auto w-64 p-2">
                   <div className="space-y-1">
                     <button
                       className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
