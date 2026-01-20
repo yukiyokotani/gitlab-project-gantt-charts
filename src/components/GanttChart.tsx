@@ -51,6 +51,7 @@ function arePropsEqual(prevProps: GanttChartProps, nextProps: GanttChartProps): 
 
 export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, onTaskUpdate, dateRange: filterDateRange }: GanttChartProps) {
   const apiRef = useRef<GanttApi>(null);
+  const [ganttApi, setGanttApi] = useState<GanttApi>(null);
   const [holidays, setHolidays] = useState<Set<string>>(new Set());
   const holidaysFetchedRef = useRef(false);
 
@@ -447,6 +448,7 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
   // Initialize Gantt API and set up event handlers
   const handleInit = useCallback((api: GanttApi) => {
     apiRef.current = api;
+    setGanttApi(api);
 
     api.on('select-task', (ev: { id: number }) => {
       if (ev.id) {
@@ -525,7 +527,7 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
   return (
     <div className="gantt-wrapper" key={ganttKey}>
       <ThemeWrapper>
-        <Tooltip api={apiRef.current} content={TooltipContent}>
+        <Tooltip api={ganttApi} content={TooltipContent}>
           <Gantt
             init={handleInit}
             tasks={svarTasks}
