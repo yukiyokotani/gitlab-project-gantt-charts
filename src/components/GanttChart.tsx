@@ -147,9 +147,21 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
         end = displayEndBound;
       }
 
-      // Ensure end is after start (but allow same day for single-day tasks)
-      if (end.getTime() < start.getTime()) {
-        end = new Date(start.getTime());
+      // Ensure end is after start
+      // For same-day tasks, set end to end of that day (23:59:59.999) so bar displays as 1 day
+      if (end.getTime() <= start.getTime()) {
+        const endOfDay = new Date(start);
+        endOfDay.setHours(23, 59, 59, 999);
+        end = endOfDay;
+      } else if (
+        start.getFullYear() === end.getFullYear() &&
+        start.getMonth() === end.getMonth() &&
+        start.getDate() === end.getDate()
+      ) {
+        // Same day task - set end to end of that day
+        const endOfDay = new Date(end);
+        endOfDay.setHours(23, 59, 59, 999);
+        end = endOfDay;
       }
 
       // Basic task object matching svar's expected structure
