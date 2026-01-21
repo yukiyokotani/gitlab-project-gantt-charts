@@ -147,9 +147,9 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
         end = displayEndBound;
       }
 
-      // Ensure end is after start
-      if (end.getTime() <= start.getTime()) {
-        end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      // Ensure end is after start (but allow same day for single-day tasks)
+      if (end.getTime() < start.getTime()) {
+        end = new Date(start.getTime());
       }
 
       // Basic task object matching svar's expected structure
