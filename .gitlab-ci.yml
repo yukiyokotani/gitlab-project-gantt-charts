@@ -16,6 +16,10 @@ cache:
 build:
   stage: build
   script:
+    - |
+      echo "VITE_GITLAB_URL=${VITE_GITLAB_URL}" > .env
+      echo "VITE_GITLAB_TOKEN=${VITE_GITLAB_TOKEN}" >> .env
+      echo "VITE_GITLAB_PROJECT_ID=${VITE_GITLAB_PROJECT_ID}" >> .env
     - npm ci
     - npm run build
   artifacts:
@@ -28,6 +32,8 @@ build:
 
 pages:
   stage: deploy
+  tags:
+    - docker-ci-pages
   script:
     - mkdir -p public
     - cp -r dist/* public/
