@@ -99,7 +99,7 @@ export function Header({
     <header className="flex items-center justify-between gap-4 px-6 py-3 bg-card border-b border-border shadow-sm">
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center size-9 rounded-lg bg-primary/10">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="16" height="16" viewBox="4 4 16 16" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M8 6h10" stroke="#E24329"/>
             <path d="M6 12h9" stroke="#FC6D26"/>
             <path d="M11 18h7" stroke="#FCA326"/>
