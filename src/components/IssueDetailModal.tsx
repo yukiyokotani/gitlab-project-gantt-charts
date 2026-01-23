@@ -1,4 +1,6 @@
 import { ExternalLink, Check, Square, Calendar, Milestone } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 import {
   Dialog,
   DialogPortal,
@@ -68,10 +70,11 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
 
           <Separator />
 
-          {/* Metadata Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Author */}
-            {issue.author.name && (
+          {/* Metadata Rows */}
+          <div className="space-y-4">
+            {/* Row 1: Author & Assignees */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Author */}
               <div className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   作成者
@@ -83,75 +86,84 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
                       alt={issue.author.name}
                     />
                     <AvatarFallback className="text-xs">
-                      {issue.author.name.charAt(0).toUpperCase()}
+                      {issue.author.name?.charAt(0).toUpperCase() || '?'}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">{issue.author.name}</span>
+                  <span className="text-sm">{issue.author.name || '不明'}</span>
                 </div>
               </div>
-            )}
 
-            {/* Assignees */}
-            {issue.assignees.length > 0 && (
+              {/* Assignees */}
               <div className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   担当者
                 </span>
-                <div className="flex flex-wrap gap-2">
-                  {issue.assignees.map((assignee) => (
-                    <div key={assignee.id} className="flex items-center gap-2 mt-1">
-                      <Avatar className="size-6">
-                        <AvatarImage
-                          src={assignee.avatar_url}
-                          alt={assignee.name}
-                        />
-                        <AvatarFallback className="text-xs">
-                          {assignee.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm">{assignee.name}</span>
-                    </div>
-                  ))}
-                </div>
+                {issue.assignees.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {issue.assignees.map((assignee) => (
+                      <div key={assignee.id} className="flex items-center gap-2 mt-1">
+                        <Avatar className="size-6">
+                          <AvatarImage
+                            src={assignee.avatar_url}
+                            alt={assignee.name}
+                          />
+                          <AvatarFallback className="text-xs">
+                            {assignee.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{assignee.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                    未設定
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {/* Milestone */}
-            {issue.milestone && (
-              <div className="space-y-1">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  マイルストーン
-                </span>
-                <div className="flex items-center gap-2 mt-1 text-sm">
-                  <Milestone className="size-4 text-muted-foreground" />
-                  <span>{issue.milestone.title}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Start Date */}
+            {/* Row 2: Milestone */}
             <div className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                開始日
+                マイルストーン
               </span>
               <div className="flex items-center gap-2 mt-1 text-sm">
-                <Calendar className="size-4 text-muted-foreground" />
-                {issue.start_date || (
+                <Milestone className="size-4 text-muted-foreground" />
+                {issue.milestone ? (
+                  <span>{issue.milestone.title}</span>
+                ) : (
                   <span className="text-muted-foreground">未設定</span>
                 )}
               </div>
             </div>
 
-            {/* Due Date */}
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                期限
-              </span>
-              <div className="flex items-center gap-2 mt-1 text-sm">
-                <Calendar className="size-4 text-muted-foreground" />
-                {issue.due_date || (
-                  <span className="text-muted-foreground">未設定</span>
-                )}
+            {/* Row 3: Start Date & Due Date */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Start Date */}
+              <div className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  開始日
+                </span>
+                <div className="flex items-center gap-2 mt-1 text-sm">
+                  <Calendar className="size-4 text-muted-foreground" />
+                  {issue.start_date || (
+                    <span className="text-muted-foreground">未設定</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Due Date */}
+              <div className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  期限
+                </span>
+                <div className="flex items-center gap-2 mt-1 text-sm">
+                  <Calendar className="size-4 text-muted-foreground" />
+                  {issue.due_date || (
+                    <span className="text-muted-foreground">未設定</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -195,8 +207,8 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
               <Separator />
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">説明</h3>
-                <div className="text-sm text-muted-foreground whitespace-pre-wrap rounded-lg bg-muted/50 p-3">
-                  {issue.description}
+                <div className="prose prose-sm max-w-none text-sm rounded-lg bg-muted/50 p-3 text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary prose-code:text-foreground prose-code:bg-border dark:prose-code:bg-zinc-700 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-li:marker:text-foreground prose-ul:text-foreground prose-ol:text-foreground">
+                  <ReactMarkdown rehypePlugins={[rehypeRaw]}>{issue.description.replace(/\\n/g, '\n')}</ReactMarkdown>
                 </div>
               </div>
             </>

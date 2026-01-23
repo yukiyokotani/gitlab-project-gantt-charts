@@ -12,6 +12,7 @@
   "dependencies": {
     "@radix-ui/react-select": "^2.2.6",
     "@svar-ui/react-gantt": "^2.4.4",
+    "@tailwindcss/typography": "^0.5.19",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -19,6 +20,8 @@
     "react": "^18.3.1",
     "react-day-picker": "^9.13.0",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
