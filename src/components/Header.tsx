@@ -1,4 +1,5 @@
-import { RefreshCw, Sun, Moon, Loader2, Milestone, ChevronDown, Check } from 'lucide-react';
+import { useState } from 'react';
+import { RefreshCw, Sun, Moon, Loader2, Milestone, ChevronDown, Check, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import {
@@ -35,6 +36,11 @@ export function Header({
   onFilterChange,
   milestones = [],
 }: HeaderProps) {
+  const [showClosedMilestones, setShowClosedMilestones] = useState(false);
+
+  const activeMilestones = milestones.filter(m => m.state === 'active');
+  const closedMilestones = milestones.filter(m => m.state === 'closed');
+
   const handleStateChange = (value: string) => {
     if (filterOptions && onFilterChange) {
       onFilterChange({
@@ -177,7 +183,8 @@ export function Header({
                       <span>すべて表示</span>
                     </button>
                     <div className="my-1 h-px bg-border" />
-                    {milestones.map(milestone => {
+                    {/* Active milestones */}
+                    {activeMilestones.map(milestone => {
                       const isSelected = filterOptions.selectedMilestoneIds.includes(milestone.id);
                       return (
                         <button
@@ -192,6 +199,35 @@ export function Header({
                         </button>
                       );
                     })}
+                    {/* Closed milestones toggle */}
+                    {closedMilestones.length > 0 && (
+                      <>
+                        <div className="my-1 h-px bg-border" />
+                        <button
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+                          onClick={() => setShowClosedMilestones(!showClosedMilestones)}
+                        >
+                          <Archive className="size-4" />
+                          <span>Closedを{showClosedMilestones ? '非表示' : '表示'}</span>
+                          <span className="ml-auto text-xs">({closedMilestones.length})</span>
+                        </button>
+                        {showClosedMilestones && closedMilestones.map(milestone => {
+                          const isSelected = filterOptions.selectedMilestoneIds.includes(milestone.id);
+                          return (
+                            <button
+                              key={milestone.id}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+                              onClick={() => handleMilestoneToggle(milestone.id)}
+                            >
+                              <div className="flex size-4 items-center justify-center rounded border">
+                                {isSelected && <Check className="size-3" />}
+                              </div>
+                              <span className="truncate">{milestone.title}</span>
+                            </button>
+                          );
+                        })}
+                      </>
+                    )}
                   </div>
                 </PopoverContent>
             </Popover>
