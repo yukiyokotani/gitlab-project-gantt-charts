@@ -1,4 +1,4 @@
-import { RefreshCw, Sun, Moon, Loader2, Milestone, ChevronDown, Check, GanttChart } from 'lucide-react';
+import { RefreshCw, Sun, Moon, Loader2, Milestone, ChevronDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import {
@@ -99,7 +99,11 @@ export function Header({
     <header className="flex items-center justify-between gap-4 px-6 py-3 bg-card border-b border-border shadow-sm">
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center size-9 rounded-lg bg-primary/10">
-          <GanttChart className='size-4'/>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 6h10" stroke="#E24329"/>
+            <path d="M6 12h9" stroke="#FC6D26"/>
+            <path d="M11 18h7" stroke="#FCA326"/>
+          </svg>
         </div>
         <h1 className="text-lg font-semibold tracking-tight text-foreground">
           GitLab Gantt Chart
