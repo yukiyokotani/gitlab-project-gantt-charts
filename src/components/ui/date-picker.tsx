@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
-interface DatePickerProps {
+type DatePickerProps = {
   date: Date | null;
   onDateChange: (date: Date | null) => void;
   placeholder?: string;
   className?: string;
-}
+};
 
 export function DatePicker({
   date,
@@ -33,7 +33,7 @@ export function DatePicker({
         <Button
           variant="outline"
           className={cn(
-            'w-[160px] justify-start text-left font-normal bg-transparent',
+            'w-40 justify-start text-left font-normal bg-transparent',
             !date && 'text-muted-foreground',
             className
           )}
@@ -48,7 +48,7 @@ export function DatePicker({
           selected={date ?? undefined}
           onSelect={handleSelect}
           locale={ja}
-          initialFocus
+          autoFocus
         />
       </PopoverContent>
     </Popover>

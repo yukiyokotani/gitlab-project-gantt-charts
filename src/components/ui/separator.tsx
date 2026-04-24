@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-interface SeparatorProps extends React.ComponentProps<'div'> {
+type SeparatorProps = React.ComponentProps<'div'> & {
   orientation?: 'horizontal' | 'vertical';
   decorative?: boolean;
-}
+};
 
-function Separator({
+export function Separator({
   className,
   orientation = 'horizontal',
   decorative = true,
@@ -25,5 +25,3 @@ function Separator({
     />
   );
 }
-
-export { Separator };

@@ -17,7 +17,7 @@ import {
 import type { FilterOptions } from '../hooks/useGitLabData';
 import type { GitLabMilestone } from '../types/gitlab';
 
-interface HeaderProps {
+type HeaderProps = {
   theme: 'light' | 'dark';
   onThemeToggle: () => void;
   onRefresh: () => void;
@@ -25,7 +25,7 @@ interface HeaderProps {
   filterOptions?: FilterOptions;
   onFilterChange?: (options: FilterOptions) => void;
   milestones?: GitLabMilestone[];
-}
+};
 
 export function Header({
   theme,

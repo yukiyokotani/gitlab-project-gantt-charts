@@ -89,7 +89,7 @@ export async function fetchAllIssues(): Promise<GitLabIssue[]> {
 }
 
 // GraphQL API for fetching work items with start_date via widgets
-interface WorkItemNode {
+type WorkItemNode = {
   id: string;
   iid: string;
   title: string;
@@ -138,9 +138,9 @@ interface WorkItemNode {
     // Progress widget
     progress?: number;
   }>;
-}
+};
 
-interface WorkItemsGraphQLResponse {
+type WorkItemsGraphQLResponse = {
   data: {
     project: {
       workItems: {
@@ -153,13 +153,13 @@ interface WorkItemsGraphQLResponse {
     };
   };
   errors?: Array<{ message: string }>;
-}
+};
 
-export interface FetchIssuesOptions {
+export type FetchIssuesOptions = {
   state?: 'opened' | 'closed' | 'all';
-  updatedAfter?: string; // ISO date string
-  milestoneTitles?: string[]; // Filter by milestone titles
-}
+  updatedAfter?: string;
+  milestoneTitles?: string[];
+};
 
 export async function fetchAllIssuesAsWorkItems(
   options: FetchIssuesOptions = {}

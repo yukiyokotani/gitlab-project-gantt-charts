@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 
-function Calendar({
+export function Calendar({
   className,
   classNames,
   showOutsideDays = true,
@@ -66,5 +66,3 @@ function Calendar({
     />
   );
 }
-
-export { Calendar };

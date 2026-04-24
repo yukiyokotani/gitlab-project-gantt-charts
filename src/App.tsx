@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Header } from './components/Header';
 import { GanttChart } from './components/GanttChart';
@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { useGitLabData } from './hooks/useGitLabData';
 import { useTheme } from './hooks/useTheme';
 import { getGitLabConfig } from './api/gitlab';
-import type { ParsedIssue } from './types/gitlab';
 
 function App() {
   const { theme, toggleTheme } = useTheme();
@@ -22,7 +21,13 @@ function App() {
     refresh,
     updateTaskDates,
   } = useGitLabData();
-  const [selectedIssue, setSelectedIssue] = useState<ParsedIssue | null>(null);
+  const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
+
+  // Derive selectedIssue from issues so it stays in sync after updates.
+  const selectedIssue = useMemo(
+    () => (selectedIssueId == null ? null : issues.find((i) => i.id === selectedIssueId) ?? null),
+    [selectedIssueId, issues]
+  );
 
   const config = getGitLabConfig();
 
@@ -31,30 +36,30 @@ function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
-  const handleTaskClick = useCallback(
-    (taskId: string) => {
-      // Extract issue ID from task ID (format: "issue-{id}")
-      const match = taskId.match(/^issue-(\d+)$/);
-      if (match) {
-        const issueId = parseInt(match[1], 10);
-        const issue = issues.find((i) => i.id === issueId);
-        if (issue) {
-          setSelectedIssue(issue);
-        }
-      }
-    },
-    [issues]
-  );
+  const handleTaskClick = useCallback((taskId: string) => {
+    const match = taskId.match(/^issue-(\d+)$/);
+    if (match) {
+      setSelectedIssueId(parseInt(match[1], 10));
+    }
+  }, []);
 
   const handleTaskUpdate = useCallback(
-    async (taskId: string, start: Date, end: Date) => {
-      await updateTaskDates(taskId, start, end);
+    async (taskId: string, startDate: Date, dueDate: Date) => {
+      await updateTaskDates(taskId, startDate, dueDate);
     },
     [updateTaskDates]
   );
 
+  const handleIssueDateChange = useCallback(
+    async (startDate: Date | null, dueDate: Date | null) => {
+      if (selectedIssueId == null) return;
+      await updateTaskDates(`issue-${selectedIssueId}`, startDate, dueDate);
+    },
+    [selectedIssueId, updateTaskDates]
+  );
+
   const handleCloseModal = useCallback(() => {
-    setSelectedIssue(null);
+    setSelectedIssueId(null);
   }, []);
 
   // Show configuration error if not set up
@@ -185,7 +190,11 @@ function App() {
         )}
       </main>
 
-      <IssueDetailModal issue={selectedIssue} onClose={handleCloseModal} />
+      <IssueDetailModal
+        issue={selectedIssue}
+        onClose={handleCloseModal}
+        onDateChange={handleIssueDateChange}
+      />
     </div>
   );
 }

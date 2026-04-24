@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { cn, resolveUrl } from '@/lib/utils';
 
-function Avatar({ className, ...props }: React.ComponentProps<'span'>) {
+export function Avatar({ className, ...props }: React.ComponentProps<'span'>) {
   return (
     <span
       className={cn(
@@ -13,7 +13,7 @@ function Avatar({ className, ...props }: React.ComponentProps<'span'>) {
   );
 }
 
-function AvatarImage({
+export function AvatarImage({
   className,
   src,
   alt,
@@ -36,7 +36,7 @@ function AvatarImage({
   );
 }
 
-function AvatarFallback({ className, ...props }: React.ComponentProps<'span'>) {
+export function AvatarFallback({ className, ...props }: React.ComponentProps<'span'>) {
   return (
     <span
       className={cn(
@@ -47,5 +47,3 @@ function AvatarFallback({ className, ...props }: React.ComponentProps<'span'>) {
     />
   );
 }
-
-export { Avatar, AvatarImage, AvatarFallback };

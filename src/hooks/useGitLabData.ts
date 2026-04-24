@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { addDays, format } from 'date-fns';
 import type { GitLabMilestone, ParsedIssue, GitLabLabel } from '../types/gitlab';
 import type { GanttTask } from '../types/gantt';
 import {
@@ -11,27 +12,27 @@ import {
   type FetchIssuesOptions,
 } from '../api/gitlab';
 
-export interface DateRangeFilter {
+export type DateRangeFilter = {
   startDate: Date | null;
   endDate: Date | null;
-}
+};
 
-export interface FilterOptions {
+export type FilterOptions = {
   issueState: 'opened' | 'closed' | 'all';
   dateRange: DateRangeFilter;
-  selectedMilestoneIds: number[]; // empty array means show all
-}
+  selectedMilestoneIds: number[];
+};
 
 const FILTER_STORAGE_KEY = 'gitlab-gantt-filter-options';
 
-interface StoredFilterOptions {
+type StoredFilterOptions = {
   issueState: 'opened' | 'closed' | 'all';
   dateRange: {
     startDate: string | null;
     endDate: string | null;
   };
   selectedMilestoneIds: number[];
-}
+};
 
 function saveFilterToStorage(options: FilterOptions): void {
   const stored: StoredFilterOptions = {
@@ -63,7 +64,7 @@ function loadFilterFromStorage(): FilterOptions | null {
   }
 }
 
-interface UseGitLabDataResult {
+type UseGitLabDataResult = {
   tasks: GanttTask[];
   milestones: GitLabMilestone[];
   issues: ParsedIssue[];
@@ -73,16 +74,24 @@ interface UseGitLabDataResult {
   filterOptions: FilterOptions;
   setFilterOptions: (options: FilterOptions) => void;
   refresh: () => Promise<void>;
-  updateTaskDates: (taskId: string, start: Date, end: Date) => Promise<void>;
-}
+  updateTaskDates: (
+    taskId: string,
+    startDate: Date | null,
+    dueDate: Date | null
+  ) => Promise<void>;
+};
+
+const DEFAULT_DURATION_DAYS = 7;
 
 function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
+  return format(date, 'yyyy-MM-dd');
 }
 
 function parseDate(dateStr: string | null | undefined): Date | null {
   if (!dateStr) return null;
-  const date = new Date(dateStr);
+  // Parse as local midnight to avoid timezone offset issues
+  // (GitLab dates are calendar dates with no timezone information)
+  const date = new Date(`${dateStr}T00:00:00`);
   return isNaN(date.getTime()) ? null : date;
 }
 
@@ -92,14 +101,17 @@ function convertToGanttTasks(
 ): GanttTask[] {
   const tasks: GanttTask[] = [];
   const today = new Date();
-  const defaultDuration = 7; // days
 
   // Create milestone tasks using GitLab's start_date and due_date
   for (const milestone of milestones) {
-    const hasOriginalStartDate = !!parseDate(milestone.start_date);
-    const hasOriginalDueDate = !!parseDate(milestone.due_date);
-    const start = parseDate(milestone.start_date) || today;
-    const end = parseDate(milestone.due_date) || new Date(start.getTime() + defaultDuration * 24 * 60 * 60 * 1000);
+    const parsedStart = parseDate(milestone.start_date);
+    const parsedDue = parseDate(milestone.due_date);
+    const hasOriginalStartDate = !!parsedStart;
+    const hasOriginalDueDate = !!parsedDue;
+    const start = parsedStart || today;
+    // GanttTask.end uses GitLab's inclusive convention (last covered day).
+    // GanttChart converts to SVAR's exclusive end at the SVAR boundary.
+    const end = parsedDue || addDays(start, DEFAULT_DURATION_DAYS);
 
     tasks.push({
       id: `milestone-${milestone.id}`,
@@ -131,10 +143,14 @@ function convertToGanttTasks(
       progress = 100;
     }
 
-    const hasOriginalStartDate = !!parseDate(issue.start_date);
-    const hasOriginalDueDate = !!parseDate(issue.due_date);
-    const start = parseDate(issue.start_date) || parseDate(issue.created_at) || today;
-    const end = parseDate(issue.due_date) || new Date(start.getTime() + defaultDuration * 24 * 60 * 60 * 1000);
+    const parsedStart = parseDate(issue.start_date);
+    const parsedDue = parseDate(issue.due_date);
+    const hasOriginalStartDate = !!parsedStart;
+    const hasOriginalDueDate = !!parsedDue;
+    const start = parsedStart || parseDate(issue.created_at) || today;
+    // GanttTask.end uses GitLab's inclusive convention (last covered day).
+    // GanttChart converts to SVAR's exclusive end at the SVAR boundary.
+    const end = parsedDue || addDays(start, DEFAULT_DURATION_DAYS);
 
     tasks.push({
       id: `issue-${issue.id}`,
@@ -422,30 +438,41 @@ export function useGitLabData(): UseGitLabDataResult {
     }
   }, [filterOptions.issueState, filterOptions.selectedMilestoneIds, loadData]);
 
+  // startDate / dueDate use the GitLab inclusive convention
+  // (dueDate equal to startDate represents a single-day task).
   const updateTaskDates = useCallback(
-    async (taskId: string, start: Date, end: Date) => {
+    async (taskId: string, startDate: Date | null, dueDate: Date | null) => {
+      const startStr = startDate ? formatDate(startDate) : null;
+      const dueStr = dueDate ? formatDate(dueDate) : null;
+      const fallbackEnd = startDate ? addDays(startDate, DEFAULT_DURATION_DAYS) : null;
+
+      const applyTaskUpdate = (task: GanttTask): GanttTask => ({
+        ...task,
+        ...(startDate ? { start: startDate } : {}),
+        // GanttTask.end keeps GitLab's inclusive convention.
+        end: dueDate || fallbackEnd || task.end,
+        hasOriginalStartDate: !!startDate,
+        hasOriginalDueDate: !!dueDate,
+      });
+
       // Handle milestone updates
       const milestoneMatch = taskId.match(/^milestone-(\d+)$/);
       if (milestoneMatch) {
         const milestoneId = parseInt(milestoneMatch[1], 10);
         try {
           await updateMilestone(milestoneId, {
-            start_date: formatDate(start),
-            due_date: formatDate(end),
+            start_date: startStr ?? undefined,
+            due_date: dueStr ?? undefined,
           });
 
-          // Update local state
           setAllTasks(prev =>
-            prev.map(task =>
-              task.id === taskId
-                ? {
-                    ...task,
-                    start,
-                    end,
-                    hasOriginalStartDate: true,
-                    hasOriginalDueDate: true,
-                  }
-                : task
+            prev.map(task => (task.id === taskId ? applyTaskUpdate(task) : task))
+          );
+          setMilestones(prev =>
+            prev.map(m =>
+              m.id === milestoneId
+                ? { ...m, start_date: startStr, due_date: dueStr }
+                : m
             )
           );
         } catch (err) {
@@ -464,23 +491,19 @@ export function useGitLabData(): UseGitLabDataResult {
 
       try {
         await updateIssue(issue.iid, {
-          start_date: formatDate(start),
-          due_date: formatDate(end),
+          start_date: startStr ?? undefined,
+          due_date: dueStr ?? undefined,
         });
 
-        // Update local state
         setAllTasks(prev =>
-          prev.map(task =>
-            task.id === taskId
-              ? {
-                  ...task,
-                  start,
-                  end,
-                  hasOriginalStartDate: true,
-                  hasOriginalDueDate: true,
-                }
-              : task
-            )
+          prev.map(task => (task.id === taskId ? applyTaskUpdate(task) : task))
+        );
+        setIssues(prev =>
+          prev.map(i =>
+            i.id === issueId
+              ? { ...i, start_date: startStr, due_date: dueStr }
+              : i
+          )
         );
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to update issue');

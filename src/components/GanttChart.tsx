@@ -1,28 +1,64 @@
 import { useCallback, useMemo, useRef, useEffect, useState, memo } from 'react';
 import { Gantt, Tooltip, Willow, WillowDark } from '@svar-ui/react-gantt';
 import '@svar-ui/react-gantt/all.css';
-import { format } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Milestone } from 'lucide-react';
 import type { GanttTask } from '../types/gantt';
 import './GanttChart.css';
 import { resolveUrl } from '@/lib/utils';
 
-interface DateRangeFilter {
+type DateRangeFilter = {
   startDate: Date | null;
   endDate: Date | null;
-}
+};
 
-interface GanttChartProps {
+type GanttChartProps = {
   tasks: GanttTask[];
   theme: 'light' | 'dark';
   onTaskClick: (taskId: string) => void;
   onTaskUpdate: (taskId: string, start: Date, end: Date) => void;
   dateRange?: DateRangeFilter;
-}
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type GanttApi = any;
+
+// Module-scope tooltip component so its identity stays stable across renders;
+// SVAR's Tooltip remounts when the content reference changes, which would
+// otherwise flicker on the first hover.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function TooltipContent({ data }: { data: any }) {
+  if (!data) return null;
+
+  const startDate = data.originalStart instanceof Date
+    ? format(data.originalStart, 'yyyy/MM/dd')
+    : '-';
+  const endDate = data.originalEnd instanceof Date
+    ? format(data.originalEnd, 'yyyy/MM/dd')
+    : '-';
+  const assignees = data.assignees || [];
+
+  return (
+    <div className="gantt-tooltip">
+      <div className="gantt-tooltip-title">{data.text}</div>
+      <div className="gantt-tooltip-row">
+        <span className="gantt-tooltip-label">開始日:</span>
+        <span>{startDate}</span>
+      </div>
+      <div className="gantt-tooltip-row">
+        <span className="gantt-tooltip-label">終了日:</span>
+        <span>{endDate}</span>
+      </div>
+      {assignees.length > 0 && (
+        <div className="gantt-tooltip-row">
+          <span className="gantt-tooltip-label">担当者:</span>
+          <span>{assignees.map((a: { name: string }) => a.name).join(', ')}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Custom comparison function for memo - only re-render if tasks, theme, or dateRange actually change
 function arePropsEqual(prevProps: GanttChartProps, nextProps: GanttChartProps): boolean {
@@ -141,7 +177,8 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
       }
 
       if (hasOriginalEnd && task.end instanceof Date && !isNaN(task.end.getTime())) {
-        end = task.end;
+        // GanttTask.end is the inclusive due date; SVAR wants exclusive end (one day past).
+        end = addDays(task.end, 1);
       } else {
         // No original end date - use display range end as bound
         end = displayEndBound;
@@ -301,39 +338,6 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
     );
   };
 
-  // Custom tooltip content
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const TooltipContent = ({ data }: { data: any }) => {
-    if (!data) return null;
-
-    const startDate = data.originalStart instanceof Date
-      ? format(data.originalStart, 'yyyy/MM/dd')
-      : '-';
-    const endDate = data.originalEnd instanceof Date
-      ? format(data.originalEnd, 'yyyy/MM/dd')
-      : '-';
-    const assignees = data.assignees || [];
-
-    return (
-      <div className="gantt-tooltip">
-        <div className="gantt-tooltip-title">{data.text}</div>
-        <div className="gantt-tooltip-row">
-          <span className="gantt-tooltip-label">開始日:</span>
-          <span>{startDate}</span>
-        </div>
-        <div className="gantt-tooltip-row">
-          <span className="gantt-tooltip-label">終了日:</span>
-          <span>{endDate}</span>
-        </div>
-        {assignees.length > 0 && (
-          <div className="gantt-tooltip-row">
-            <span className="gantt-tooltip-label">担当者:</span>
-            <span>{assignees.map((a: { name: string }) => a.name).join(', ')}</span>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   // Custom task bar template for different colors
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -480,7 +484,9 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
           const isIssue = originalId.startsWith('issue-') && !originalId.includes('-task-');
           const isMilestone = originalId.startsWith('milestone-');
           if ((isIssue || isMilestone) && ev.task.start && ev.task.end) {
-            onTaskUpdateRef.current(originalId, ev.task.start, ev.task.end);
+            // SVAR's end is exclusive (one day past); convert back to inclusive due date.
+            const dueDate = addDays(ev.task.end, -1);
+            onTaskUpdateRef.current(originalId, ev.task.start, dueDate);
           }
         }
       }

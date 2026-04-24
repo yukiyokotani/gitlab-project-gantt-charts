@@ -2,20 +2,20 @@ import * as React from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface DialogContextValue {
+type DialogContextValue = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
+};
 
 const DialogContext = React.createContext<DialogContextValue | null>(null);
 
-interface DialogProps {
+type DialogProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
-}
+};
 
-function Dialog({ open = false, onOpenChange, children }: DialogProps) {
+export function Dialog({ open = false, onOpenChange, children }: DialogProps) {
   return (
     <DialogContext.Provider value={{ open, onOpenChange: onOpenChange ?? (() => {}) }}>
       {children}
@@ -23,14 +23,14 @@ function Dialog({ open = false, onOpenChange, children }: DialogProps) {
   );
 }
 
-function DialogPortal({ children }: { children: React.ReactNode }) {
+export function DialogPortal({ children }: { children: React.ReactNode }) {
   const context = React.useContext(DialogContext);
   if (!context?.open) return null;
 
   return <>{children}</>;
 }
 
-function DialogOverlay({ className, ...props }: React.ComponentProps<'div'>) {
+export function DialogOverlay({ className, ...props }: React.ComponentProps<'div'>) {
   const context = React.useContext(DialogContext);
 
   return (
@@ -47,7 +47,7 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<'div'>) {
   );
 }
 
-function DialogContent({
+export function DialogContent({
   className,
   children,
   ...props
@@ -67,7 +67,7 @@ function DialogContent({
   );
 }
 
-function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
+export function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       className={cn('flex flex-col gap-2 text-center sm:text-left', className)}
@@ -76,7 +76,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   );
 }
 
-function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
+export function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       className={cn(
@@ -88,7 +88,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
   );
 }
 
-function DialogTitle({ className, ...props }: React.ComponentProps<'h2'>) {
+export function DialogTitle({ className, ...props }: React.ComponentProps<'h2'>) {
   return (
     <h2
       className={cn('text-lg font-semibold leading-none tracking-tight', className)}
@@ -97,7 +97,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<'h2'>) {
   );
 }
 
-function DialogDescription({
+export function DialogDescription({
   className,
   ...props
 }: React.ComponentProps<'p'>) {
@@ -106,7 +106,7 @@ function DialogDescription({
   );
 }
 
-function DialogClose({
+export function DialogClose({
   className,
   children,
   ...props
@@ -137,15 +137,3 @@ function DialogClose({
     </button>
   );
 }
-
-export {
-  Dialog,
-  DialogPortal,
-  DialogOverlay,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
-  DialogClose,
-};

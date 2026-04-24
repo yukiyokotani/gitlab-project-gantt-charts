@@ -1,12 +1,12 @@
-export interface GitLabLabel {
+export type GitLabLabel = {
   id: number;
   name: string;
   color: string;
   text_color: string;
   description: string | null;
-}
+};
 
-export interface GitLabMilestone {
+export type GitLabMilestone = {
   id: number;
   iid: number;
   title: string;
@@ -15,9 +15,9 @@ export interface GitLabMilestone {
   start_date: string | null;
   due_date: string | null;
   web_url: string;
-}
+};
 
-export interface GitLabIssue {
+export type GitLabIssue = {
   id: number;
   iid: number;
   title: string;
@@ -41,21 +41,21 @@ export interface GitLabIssue {
     count: number;
     completed_count: number;
   };
-}
+};
 
-export interface GitLabUser {
+export type GitLabUser = {
   id: number;
   username: string;
   name: string;
   avatar_url: string;
-}
+};
 
-export interface TaskItem {
+export type TaskItem = {
   text: string;
   checked: boolean;
-}
+};
 
-export interface ParsedIssue extends GitLabIssue {
+export type ParsedIssue = GitLabIssue & {
   tasks: TaskItem[];
   labelObjects: GitLabLabel[];
-}
+};

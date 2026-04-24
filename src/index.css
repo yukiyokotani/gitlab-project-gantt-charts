@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
+/* Use .dark class for dark: utilities instead of OS preference */
+@variant dark (&:is(.dark, .dark *));
+
 /* shadcn/ui CSS variables */
 @theme inline {
   --color-background: var(--background);

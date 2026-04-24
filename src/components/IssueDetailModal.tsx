@@ -1,4 +1,4 @@
-import { ExternalLink, Check, Square, Calendar, Milestone } from 'lucide-react';
+import { ExternalLink, Check, Square, Milestone } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import {
@@ -16,15 +16,40 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import type { ParsedIssue } from '../types/gitlab';
 
-interface IssueDetailModalProps {
+type IssueDetailModalProps = {
   issue: ParsedIssue | null;
   onClose: () => void;
+  onDateChange?: (startDate: Date | null, dueDate: Date | null) => void | Promise<void>;
+};
+
+function parseGitLabDate(dateStr: string | null | undefined): Date | null {
+  if (!dateStr) return null;
+  const date = new Date(`${dateStr}T00:00:00`);
+  return isNaN(date.getTime()) ? null : date;
 }
 
-export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
+export function IssueDetailModal({ issue, onClose, onDateChange }: IssueDetailModalProps) {
   if (!issue) return null;
+
+  const startDate = parseGitLabDate(issue.start_date);
+  const dueDate = parseGitLabDate(issue.due_date);
+
+  const handleStartDateChange = (next: Date | null) => {
+    if (!onDateChange) return;
+    // If due date is now before start, push due to match start.
+    const adjustedDue = next && dueDate && dueDate < next ? next : dueDate;
+    void onDateChange(next, adjustedDue);
+  };
+
+  const handleDueDateChange = (next: Date | null) => {
+    if (!onDateChange) return;
+    // If start is after the new due, pull start back to match.
+    const adjustedStart = next && startDate && startDate > next ? next : startDate;
+    void onDateChange(adjustedStart, next);
+  };
 
   const completedTasks = issue.tasks.filter((t) => t.checked).length;
   const totalTasks = issue.tasks.length;
@@ -145,11 +170,12 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   開始日
                 </span>
-                <div className="flex items-center gap-2 mt-1 text-sm">
-                  <Calendar className="size-4 text-muted-foreground" />
-                  {issue.start_date || (
-                    <span className="text-muted-foreground">未設定</span>
-                  )}
+                <div className="mt-1">
+                  <DatePicker
+                    date={startDate}
+                    onDateChange={handleStartDateChange}
+                    placeholder="未設定"
+                  />
                 </div>
               </div>
 
@@ -158,11 +184,12 @@ export function IssueDetailModal({ issue, onClose }: IssueDetailModalProps) {
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   期限
                 </span>
-                <div className="flex items-center gap-2 mt-1 text-sm">
-                  <Calendar className="size-4 text-muted-foreground" />
-                  {issue.due_date || (
-                    <span className="text-muted-foreground">未設定</span>
-                  )}
+                <div className="mt-1">
+                  <DatePicker
+                    date={dueDate}
+                    onDateChange={handleDueDateChange}
+                    placeholder="未設定"
+                  />
                 </div>
               </div>
             </div>

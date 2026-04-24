@@ -1,4 +1,4 @@
-export interface GanttTask {
+export type GanttTask = {
   id: string;
   text: string;
   start: Date;
@@ -8,7 +8,6 @@ export interface GanttTask {
   type?: 'task' | 'summary' | 'milestone';
   parent?: string;
   open?: boolean;
-  // Custom fields for GitLab integration
   gitlabId?: number;
   gitlabIid?: number;
   webUrl?: string;
@@ -17,32 +16,31 @@ export interface GanttTask {
   issueState?: 'opened' | 'closed';
   isSubtask?: boolean;
   milestoneId?: number;
-  // Flags for original date existence
   hasOriginalStartDate?: boolean;
   hasOriginalDueDate?: boolean;
-}
+};
 
-export interface LabelInfo {
+export type LabelInfo = {
   name: string;
   color: string;
   textColor: string;
-}
+};
 
-export interface AssigneeInfo {
+export type AssigneeInfo = {
   id: number;
   name: string;
   avatarUrl: string;
-}
+};
 
-export interface GanttLink {
+export type GanttLink = {
   id: string;
   source: string;
   target: string;
   type: 'e2s' | 's2s' | 'e2e' | 's2e';
-}
+};
 
-export interface GanttScale {
+export type GanttScale = {
   unit: 'hour' | 'day' | 'week' | 'month' | 'year';
   step: number;
   format: string;
-}
+};
