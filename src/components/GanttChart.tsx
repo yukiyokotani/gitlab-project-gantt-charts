@@ -80,6 +80,7 @@ function arePropsEqual(prevProps: GanttChartProps, nextProps: GanttChartProps): 
     if (prevProps.tasks[i].id !== nextProps.tasks[i].id) return false;
     if (prevProps.tasks[i].start?.getTime() !== nextProps.tasks[i].start?.getTime()) return false;
     if (prevProps.tasks[i].end?.getTime() !== nextProps.tasks[i].end?.getTime()) return false;
+    if (prevProps.tasks[i].issueState !== nextProps.tasks[i].issueState) return false;
   }
 
   return true;
