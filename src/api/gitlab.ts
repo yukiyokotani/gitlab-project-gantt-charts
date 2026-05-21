@@ -378,17 +378,58 @@ export async function updateIssue(
   issueIid: number,
   updates: { due_date?: string; start_date?: string }
 ): Promise<void> {
-  const url = `${GITLAB_URL}/api/v4/projects/${encodeURIComponent(GITLAB_PROJECT_ID)}/issues/${issueIid}`;
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers,
+  const graphqlHeaders = {
+    'Authorization': `Bearer ${GITLAB_TOKEN}`,
+    'Content-Type': 'application/json',
+  };
+
+  const projectPath = await getProjectPath();
+
+  const getResult = await fetch(`${GITLAB_URL}/api/graphql`, {
+    method: 'POST',
+    headers: graphqlHeaders,
     body: JSON.stringify({
-      ...(updates.start_date !== undefined && { start_date: updates.start_date }),
-      ...(updates.due_date !== undefined && { due_date: updates.due_date }),
+      query: `query GetWorkItem($fullPath: ID!, $iid: String!) {
+        project(fullPath: $fullPath) {
+          workItems(iid: $iid, first: 1) { nodes { id } }
+        }
+      }`,
+      variables: { fullPath: projectPath, iid: String(issueIid) },
     }),
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to update issue: ${response.status} ${response.statusText}`);
+  }).then(r => r.json());
+
+  if (getResult.errors?.length > 0) {
+    throw new Error(`GraphQL error: ${getResult.errors[0].message}`);
+  }
+  const workItemId = getResult.data?.project?.workItems?.nodes?.[0]?.id;
+  if (!workItemId) throw new Error('Work item not found');
+
+  const result = await fetch(`${GITLAB_URL}/api/graphql`, {
+    method: 'POST',
+    headers: graphqlHeaders,
+    body: JSON.stringify({
+      query: `mutation UpdateWorkItemDates($id: WorkItemID!, $startDate: Date, $dueDate: Date) {
+        workItemUpdate(input: {
+          id: $id
+          startAndDueDateWidget: { startDate: $startDate, dueDate: $dueDate }
+        }) {
+          workItem { id }
+          errors
+        }
+      }`,
+      variables: {
+        id: workItemId,
+        startDate: updates.start_date ?? null,
+        dueDate: updates.due_date ?? null,
+      },
+    }),
+  }).then(r => r.json());
+
+  if (result.errors?.length > 0) {
+    throw new Error(`GraphQL error: ${result.errors[0].message}`);
+  }
+  if (result.data?.workItemUpdate?.errors?.length > 0) {
+    throw new Error(`Update error: ${result.data.workItemUpdate.errors[0]}`);
   }
 }
 
