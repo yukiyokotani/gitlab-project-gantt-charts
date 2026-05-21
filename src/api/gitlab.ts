@@ -40,7 +40,7 @@ async function getProjectPath(): Promise<string> {
 }
 
 const headers = {
-  'Authorization': `Bearer ${GITLAB_TOKEN}`,
+  'PRIVATE-TOKEN': GITLAB_TOKEN,
   'Content-Type': 'application/json',
 };
 
