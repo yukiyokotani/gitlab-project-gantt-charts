@@ -7,6 +7,30 @@ const GITLAB_PROJECT_ID = import.meta.env.VITE_GITLAB_PROJECT_ID || '';
 // Cache for project path (needed for GraphQL)
 let cachedProjectPath: string | null = null;
 
+// Whether this GitLab instance requires isFixed: true to apply dates (versions before 19.0)
+let cachedRequiresIsFixed: boolean | null = null;
+
+async function requiresIsFixed(): Promise<boolean> {
+  if (cachedRequiresIsFixed !== null) {
+    return cachedRequiresIsFixed;
+  }
+  try {
+    const response = await fetch(`${GITLAB_URL}/api/v4/version`, {
+      headers: { 'PRIVATE-TOKEN': GITLAB_TOKEN },
+    });
+    if (response.ok) {
+      const { version } = await response.json() as { version: string };
+      const major = parseInt(version.split('.')[0], 10);
+      cachedRequiresIsFixed = major < 19;
+      return cachedRequiresIsFixed;
+    }
+  } catch {
+    // バージョン取得失敗時はフォールバックとして不要な方（false）を返す
+  }
+  cachedRequiresIsFixed = false;
+  return false;
+}
+
 // Get the project path for GraphQL (converts numeric ID to path if needed)
 async function getProjectPath(): Promise<string> {
   if (cachedProjectPath) {
@@ -426,8 +450,8 @@ export async function updateIssue(
     throw new Error('Work item not found');
   }
 
-  // Now update the work item using the mutation
-  const updateMutation = `
+  const withIsFixed = await requiresIsFixed();
+  const mutation = `
     mutation UpdateWorkItemDates($id: WorkItemID!, $startDate: Date, $dueDate: Date) {
       workItemUpdate(
         input: {
@@ -435,6 +459,7 @@ export async function updateIssue(
           startAndDueDateWidget: {
             startDate: $startDate
             dueDate: $dueDate
+            ${withIsFixed ? 'isFixed: true' : ''}
           }
         }
       ) {
@@ -456,11 +481,11 @@ export async function updateIssue(
     method: 'POST',
     headers: graphqlHeaders,
     body: JSON.stringify({
-      query: updateMutation,
+      query: mutation,
       variables: {
         id: workItemId,
-        startDate: updates.start_date || null,
-        dueDate: updates.due_date || null,
+        startDate: updates.start_date ?? null,
+        dueDate: updates.due_date ?? null,
       },
     }),
   });
@@ -469,14 +494,13 @@ export async function updateIssue(
     throw new Error(`Failed to update work item: ${updateResponse.status} ${updateResponse.statusText}`);
   }
 
-  const updateResult = await updateResponse.json();
+  const result = await updateResponse.json();
 
-  if (updateResult.errors?.length > 0) {
-    throw new Error(`GraphQL error: ${updateResult.errors[0].message}`);
+  if (result.errors?.length > 0) {
+    throw new Error(`GraphQL error: ${result.errors[0].message}`);
   }
-
-  if (updateResult.data?.workItemUpdate?.errors?.length > 0) {
-    throw new Error(`Update error: ${updateResult.data.workItemUpdate.errors[0]}`);
+  if (result.data?.workItemUpdate?.errors?.length > 0) {
+    throw new Error(`Update error: ${result.data.workItemUpdate.errors[0]}`);
   }
 }
 
