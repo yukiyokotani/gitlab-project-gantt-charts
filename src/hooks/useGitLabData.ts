@@ -21,6 +21,7 @@ export type FilterOptions = {
   issueState: 'opened' | 'closed' | 'all';
   dateRange: DateRangeFilter;
   selectedMilestoneIds: number[];
+  selectedLabelNames: string[];
 };
 
 const FILTER_STORAGE_KEY = 'gitlab-gantt-filter-options';
@@ -32,6 +33,7 @@ type StoredFilterOptions = {
     endDate: string | null;
   };
   selectedMilestoneIds: number[];
+  selectedLabelNames: string[];
 };
 
 function saveFilterToStorage(options: FilterOptions): void {
@@ -42,6 +44,7 @@ function saveFilterToStorage(options: FilterOptions): void {
       endDate: options.dateRange.endDate?.toISOString() || null,
     },
     selectedMilestoneIds: options.selectedMilestoneIds,
+    selectedLabelNames: options.selectedLabelNames,
   };
   localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(stored));
 }
@@ -58,6 +61,7 @@ function loadFilterFromStorage(): FilterOptions | null {
         endDate: parsed.dateRange.endDate ? new Date(parsed.dateRange.endDate) : null,
       },
       selectedMilestoneIds: parsed.selectedMilestoneIds || [],
+      selectedLabelNames: parsed.selectedLabelNames || [],
     };
   } catch {
     return null;
@@ -254,6 +258,7 @@ const defaultFilterOptions: FilterOptions = {
   issueState: 'opened',
   dateRange: getDefaultDateRange(),
   selectedMilestoneIds: [],
+  selectedLabelNames: [],
 };
 
 function getInitialFilterOptions(): FilterOptions {
@@ -360,8 +365,25 @@ export function useGitLabData(): UseGitLabDataResult {
       });
     }
 
+    // Apply label filter
+    if (filterOptions.selectedLabelNames.length > 0) {
+      const selectedLabelSet = new Set(filterOptions.selectedLabelNames);
+      const matchingIssueIds = new Set(
+        filtered
+          .filter(t => t.type === 'task' && !t.isSubtask && t.labels?.some(l => selectedLabelSet.has(l.name)))
+          .map(t => t.id)
+      );
+      filtered = filtered.filter(task => {
+        if (task.type === 'summary') {
+          return filtered.some(t => !t.isSubtask && t.parent === task.id && matchingIssueIds.has(t.id));
+        }
+        if (task.isSubtask) return task.parent != null && matchingIssueIds.has(task.parent);
+        return matchingIssueIds.has(task.id);
+      });
+    }
+
     setTasks(filtered);
-  }, [allTasks, filterOptions.dateRange, filterOptions.selectedMilestoneIds]);
+  }, [allTasks, filterOptions.dateRange, filterOptions.selectedMilestoneIds, filterOptions.selectedLabelNames]);
 
   const loadData = useCallback(async (options?: FetchIssuesOptions & { selectedMilestoneIds?: number[] }) => {
     setLoading(true);

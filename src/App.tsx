@@ -14,6 +14,7 @@ function App() {
     tasks,
     milestones,
     issues,
+    labels,
     loading,
     error,
     filterOptions,
@@ -153,6 +154,7 @@ function App() {
         filterOptions={filterOptions}
         onFilterChange={setFilterOptions}
         milestones={milestones}
+        labels={labels}
       />
 
       <main className="flex-1 min-h-0 overflow-hidden">

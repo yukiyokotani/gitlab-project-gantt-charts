@@ -177,26 +177,28 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
       }
 
       if (hasOriginalEnd && task.end instanceof Date && !isNaN(task.end.getTime())) {
-        // GanttTask.end is the inclusive due date; SVAR wants exclusive end (one day past).
-        end = addDays(task.end, 1);
+        // 1-day tasks (start_date === due_date) need end=23:59:59.999 so SVAR renders a visible bar.
+        // midnight-to-next-midnight causes SVAR to render nothing for same-day spans.
+        const isSameDay =
+          start.getFullYear() === task.end.getFullYear() &&
+          start.getMonth() === task.end.getMonth() &&
+          start.getDate() === task.end.getDate();
+        if (isSameDay) {
+          const endOfDay = new Date(task.end);
+          endOfDay.setHours(23, 59, 59, 999);
+          end = endOfDay;
+        } else {
+          // Multi-day tasks: SVAR uses exclusive end (one day past the inclusive due date).
+          end = addDays(task.end, 1);
+        }
       } else {
         // No original end date - use display range end as bound
         end = displayEndBound;
       }
 
-      // Ensure end is after start
-      // For same-day tasks, set end to end of that day (23:59:59.999) so bar displays as 1 day
+      // Fallback: ensure end is strictly after start
       if (end.getTime() <= start.getTime()) {
         const endOfDay = new Date(start);
-        endOfDay.setHours(23, 59, 59, 999);
-        end = endOfDay;
-      } else if (
-        start.getFullYear() === end.getFullYear() &&
-        start.getMonth() === end.getMonth() &&
-        start.getDate() === end.getDate()
-      ) {
-        // Same day task - set end to end of that day
-        const endOfDay = new Date(end);
         endOfDay.setHours(23, 59, 59, 999);
         end = endOfDay;
       }
@@ -484,9 +486,12 @@ export const GanttChart = memo(function GanttChart({ tasks, theme, onTaskClick, 
           const isIssue = originalId.startsWith('issue-') && !originalId.includes('-task-');
           const isMilestone = originalId.startsWith('milestone-');
           if ((isIssue || isMilestone) && ev.task.start && ev.task.end) {
-            // SVAR's end is exclusive (one day past); convert back to inclusive due date.
-            const dueDate = addDays(ev.task.end, -1);
-            onTaskUpdateRef.current(originalId, ev.task.start, dueDate);
+            // Normalize to calendar-day midnight to handle SVAR returning 23:59:59.999
+            // for 1-day tasks. Compare calendar days to determine inclusive due date.
+            const startDay = new Date(ev.task.start.getFullYear(), ev.task.start.getMonth(), ev.task.start.getDate());
+            const endDay = new Date(ev.task.end.getFullYear(), ev.task.end.getMonth(), ev.task.end.getDate());
+            const dueDate = endDay.getTime() > startDay.getTime() ? addDays(endDay, -1) : startDay;
+            onTaskUpdateRef.current(originalId, startDay, dueDate);
           }
         }
       }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshCw, Sun, Moon, Loader2, Milestone, ChevronDown, Check, Archive } from 'lucide-react';
+import { RefreshCw, Sun, Moon, Loader2, Milestone, ChevronDown, Check, Archive, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import {
@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { FilterOptions } from '../hooks/useGitLabData';
-import type { GitLabMilestone } from '../types/gitlab';
+import type { GitLabMilestone, GitLabLabel } from '../types/gitlab';
 
 type HeaderProps = {
   theme: 'light' | 'dark';
@@ -25,6 +25,7 @@ type HeaderProps = {
   filterOptions?: FilterOptions;
   onFilterChange?: (options: FilterOptions) => void;
   milestones?: GitLabMilestone[];
+  labels?: GitLabLabel[];
 };
 
 export function Header({
@@ -35,6 +36,7 @@ export function Header({
   filterOptions,
   onFilterChange,
   milestones = [],
+  labels = [],
 }: HeaderProps) {
   const [showClosedMilestones, setShowClosedMilestones] = useState(false);
 
@@ -96,10 +98,31 @@ export function Header({
     }
   };
 
+  const handleLabelToggle = (labelName: string) => {
+    if (filterOptions && onFilterChange) {
+      const current = filterOptions.selectedLabelNames;
+      const next = current.includes(labelName)
+        ? current.filter(n => n !== labelName)
+        : [...current, labelName];
+      onFilterChange({ ...filterOptions, selectedLabelNames: next });
+    }
+  };
+
+  const handleSelectAllLabels = () => {
+    if (filterOptions && onFilterChange) {
+      onFilterChange({ ...filterOptions, selectedLabelNames: [] });
+    }
+  };
+
   const selectedMilestoneCount = filterOptions?.selectedMilestoneIds.length || 0;
   const milestoneFilterLabel = selectedMilestoneCount === 0
     ? 'すべて'
     : `${selectedMilestoneCount}件選択中`;
+
+  const selectedLabelCount = filterOptions?.selectedLabelNames.length || 0;
+  const labelFilterLabel = selectedLabelCount === 0
+    ? 'すべて'
+    : `${selectedLabelCount}件選択中`;
 
   return (
     <header className="flex items-center justify-between gap-4 px-6 py-3 bg-card border-b border-border shadow-sm">
@@ -230,6 +253,59 @@ export function Header({
                     )}
                   </div>
                 </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-muted-foreground">
+              ラベル:
+            </label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  disabled={labels.length === 0}
+                  className="flex h-9 w-35 items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Tag className="size-4" />
+                    {labels.length === 0 ? '読込中...' : labelFilterLabel}
+                  </span>
+                  <ChevronDown className="size-4 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="max-h-[calc(100vh-80px)] overflow-auto w-56 p-2">
+                <div className="space-y-1">
+                  <button
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                    onClick={handleSelectAllLabels}
+                  >
+                    <div className="flex size-4 items-center justify-center rounded border">
+                      {selectedLabelCount === 0 && <Check className="size-3" />}
+                    </div>
+                    <span>すべて表示</span>
+                  </button>
+                  <div className="my-1 h-px bg-border" />
+                  {labels.map(label => {
+                    const isSelected = filterOptions?.selectedLabelNames.includes(label.name) ?? false;
+                    return (
+                      <button
+                        key={label.id}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                        onClick={() => handleLabelToggle(label.name)}
+                      >
+                        <div className="flex size-4 items-center justify-center rounded border">
+                          {isSelected && <Check className="size-3" />}
+                        </div>
+                        <span
+                          className="inline-block size-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: label.color }}
+                        />
+                        <span className="truncate">{label.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
             </Popover>
           </div>
         </div>
