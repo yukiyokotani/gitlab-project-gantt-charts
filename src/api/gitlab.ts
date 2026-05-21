@@ -7,30 +7,6 @@ const GITLAB_PROJECT_ID = import.meta.env.VITE_GITLAB_PROJECT_ID || '';
 // Cache for project path (needed for GraphQL)
 let cachedProjectPath: string | null = null;
 
-// Whether this GitLab instance requires isFixed: true to apply dates (versions before 19.0)
-let cachedRequiresIsFixed: boolean | null = null;
-
-async function requiresIsFixed(): Promise<boolean> {
-  if (cachedRequiresIsFixed !== null) {
-    return cachedRequiresIsFixed;
-  }
-  try {
-    const response = await fetch(`${GITLAB_URL}/api/v4/version`, {
-      headers: { 'PRIVATE-TOKEN': GITLAB_TOKEN },
-    });
-    if (response.ok) {
-      const { version } = await response.json() as { version: string };
-      const major = parseInt(version.split('.')[0], 10);
-      cachedRequiresIsFixed = major < 19;
-      return cachedRequiresIsFixed;
-    }
-  } catch {
-    // バージョン取得失敗時はフォールバックとして不要な方（false）を返す
-  }
-  cachedRequiresIsFixed = false;
-  return false;
-}
-
 // Get the project path for GraphQL (converts numeric ID to path if needed)
 async function getProjectPath(): Promise<string> {
   if (cachedProjectPath) {
@@ -402,105 +378,17 @@ export async function updateIssue(
   issueIid: number,
   updates: { due_date?: string; start_date?: string }
 ): Promise<void> {
-  // Use GraphQL Work Items API to update start_date and due_date
-  const graphqlHeaders = {
-    'Authorization': `Bearer ${GITLAB_TOKEN}`,
-    'Content-Type': 'application/json',
-  };
-
-  const projectPath = await getProjectPath();
-
-  // First, get the work item ID from the issue IID
-  const getWorkItemQuery = `
-    query GetWorkItem($fullPath: ID!, $iid: String!) {
-      project(fullPath: $fullPath) {
-        workItems(iid: $iid, first: 1) {
-          nodes {
-            id
-          }
-        }
-      }
-    }
-  `;
-
-  const getResponse = await fetch(`${GITLAB_URL}/api/graphql`, {
-    method: 'POST',
-    headers: graphqlHeaders,
+  const url = `${GITLAB_URL}/api/v4/projects/${encodeURIComponent(GITLAB_PROJECT_ID)}/issues/${issueIid}`;
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers,
     body: JSON.stringify({
-      query: getWorkItemQuery,
-      variables: {
-        fullPath: projectPath,
-        iid: String(issueIid),
-      },
+      ...(updates.start_date !== undefined && { start_date: updates.start_date }),
+      ...(updates.due_date !== undefined && { due_date: updates.due_date }),
     }),
   });
-
-  if (!getResponse.ok) {
-    throw new Error(`Failed to get work item: ${getResponse.status} ${getResponse.statusText}`);
-  }
-
-  const getResult = await getResponse.json();
-
-  if (getResult.errors?.length > 0) {
-    throw new Error(`GraphQL error: ${getResult.errors[0].message}`);
-  }
-
-  const workItemId = getResult.data?.project?.workItems?.nodes?.[0]?.id;
-  if (!workItemId) {
-    throw new Error('Work item not found');
-  }
-
-  const withIsFixed = await requiresIsFixed();
-  const mutation = `
-    mutation UpdateWorkItemDates($id: WorkItemID!, $startDate: Date, $dueDate: Date) {
-      workItemUpdate(
-        input: {
-          id: $id
-          startAndDueDateWidget: {
-            startDate: $startDate
-            dueDate: $dueDate
-            ${withIsFixed ? 'isFixed: true' : ''}
-          }
-        }
-      ) {
-        workItem {
-          id
-          widgets {
-            ... on WorkItemWidgetStartAndDueDate {
-              startDate
-              dueDate
-            }
-          }
-        }
-        errors
-      }
-    }
-  `;
-
-  const updateResponse = await fetch(`${GITLAB_URL}/api/graphql`, {
-    method: 'POST',
-    headers: graphqlHeaders,
-    body: JSON.stringify({
-      query: mutation,
-      variables: {
-        id: workItemId,
-        startDate: updates.start_date ?? null,
-        dueDate: updates.due_date ?? null,
-      },
-    }),
-  });
-
-  if (!updateResponse.ok) {
-    throw new Error(`Failed to update work item: ${updateResponse.status} ${updateResponse.statusText}`);
-  }
-
-  const result = await updateResponse.json();
-
-  if (result.errors?.length > 0) {
-    throw new Error(`GraphQL error: ${result.errors[0].message}`);
-  }
-  if (result.data?.workItemUpdate?.errors?.length > 0) {
-    throw new Error(`Update error: ${result.data.workItemUpdate.errors[0]}`);
+  if (!response.ok) {
+    throw new Error(`Failed to update issue: ${response.status} ${response.statusText}`);
   }
 }
 
